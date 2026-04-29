@@ -1,0 +1,1 @@
+"""LuminaFix Web Application."""

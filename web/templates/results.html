@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Results - LuminaFix Pro</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/style.css?v=34">
+    <link rel="stylesheet" href="/static/css/results.css?v=32">
+</head>
+<body>
+    <div class="ambient-glow"></div>
+
+    <div class="results-app">
+        <!-- Top Nav -->
+        <nav class="topbar">
+            <div class="nav-left">
+                <a href="/" class="back-btn">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                        <polyline points="15 18 9 12 15 6"/>
+                    </svg>
+                    Back
+                </a>
+                <div class="nav-divider"></div>
+                <span class="logo">Lumina<span class="logo-accent">Fix</span> <span class="logo-pro">PRO</span></span>
+            </div>
+            <div class="nav-center">
+                <span class="result-title" id="image-name">Results</span>
+            </div>
+            <div class="nav-right">
+                <span class="version-count" id="version-count"></span>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <div class="results-layout">
+            <!-- Sidebar: Original + Settings -->
+            <aside class="results-sidebar">
+                <!-- Original Image -->
+                <div class="sidebar-block">
+                    <h3 class="sidebar-label">Original</h3>
+                    <div class="original-preview">
+                        <img id="original-image" src="" alt="Original">
+                    </div>
+                </div>
+
+                <!-- Live Settings -->
+                <div class="sidebar-block">
+                    <h3 class="sidebar-label">
+                        Adjust Settings
+                        <span class="live-dot"></span>
+                    </h3>
+
+                    <!-- Filter Strength Slider (Universal) -->
+                    <div class="setting-group">
+                        <div class="setting-group-header">
+                            <span>Filter Strength</span>
+                            <span class="setting-val" id="color-strength-value">90%</span>
+                        </div>
+                        <input type="range" id="color-strength" min="0" max="200" value="90">
+                        <p class="setting-hint">Applies to all versions. Per-image sliders below each result.</p>
+                    </div>
+
+                    <!-- Luminance -->
+                    <div class="setting-group">
+                        <div class="setting-group-header">
+                            <span>Luminance</span>
+                            <span class="setting-val" id="luminance-value">0%</span>
+                        </div>
+                        <input type="range" id="luminance-strength" min="0" max="100" value="0">
+                    </div>
+
+                    <!-- Protection toggles hidden — always enabled -->
+                    <div style="display:none;">
+                        <input type="checkbox" id="skin-protection" checked>
+                        <input type="checkbox" id="neon-protection" checked>
+                        <input type="checkbox" id="lip-protection" checked>
+                    </div>
+
+                    <!-- Comparison mode hidden — keep inputs so existing JS doesn't break -->
+                    <div style="display:none;">
+                        <input type="checkbox" id="comparison-mode-toggle">
+                        <button id="reset-baseline-btn"></button>
+                        <div id="baseline-info">
+                            <span id="baseline-settings-display"></span>
+                            <span id="current-settings-display"></span>
+                        </div>
+                    </div>
+
+                    <!-- Status -->
+                    <div class="reprocess-status" id="reprocess-status"></div>
+                </div>
+
+                <!-- Export Actions -->
+                <div class="sidebar-block sidebar-actions">
+                    <button class="btn btn-primary" id="download-all-btn" style="width:100%;">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                            <polyline points="7 10 12 15 17 10"/>
+                            <line x1="12" y1="15" x2="12" y2="3"/>
+                        </svg>
+                        Download all images
+                    </button>
+                    <select id="xmp-strategy-select" class="select-sm" style="display:none;">
+                        <option value="rapidraw" selected>RapidRAW</option>
+                    </select>
+                    <button class="btn btn-accent" id="export-zip-btn" style="width:100%;">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                            <polyline points="7 10 12 15 17 10"/>
+                            <line x1="12" y1="15" x2="12" y2="3"/>
+                        </svg>
+                        Download zip and XMP preset
+                    </button>
+                    <a href="/" class="btn btn-ghost" style="width:100%;text-decoration:none;text-align:center;">Process New Image</a>
+                </div>
+            </aside>
+
+            <!-- Results Grid -->
+            <div class="results-main" id="results-main">
+                <div class="processing-banner" id="processing-banner" aria-live="polite">
+                    <span class="spinner-large"></span>
+                    <span id="processing-banner-text">Processing...</span>
+                </div>
+                <div class="results-grid-header">
+                    <h2>Generated Versions</h2>
+                </div>
+                <div id="results-grid" class="version-grid">
+                    <!-- Populated by JS -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/results.js?v=34"></script>
+</body>
+</html>

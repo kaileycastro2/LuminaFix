@@ -1,0 +1,230 @@
+<mxfile host="app.diagrams.net" modified="2024-01-07T00:00:00.000Z" agent="Claude" version="1.0">
+  <diagram name="Style Transfer Architecture" id="style-transfer-arch">
+    <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1400" pageHeight="900" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- Title -->
+        <mxCell id="title" value="LuminaFix Style Transfer - Architecture" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=20;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="450" y="20" width="400" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- Input Section -->
+        <mxCell id="input-group" value="INPUTS" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontSize=14;fontStyle=1;fontColor=#666666" vertex="1" parent="1">
+          <mxGeometry x="80" y="80" width="100" height="30" as="geometry" />
+        </mxCell>
+
+        <!-- Reference Image -->
+        <mxCell id="ref-img" value="Reference Image" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="40" y="120" width="120" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- Target Images -->
+        <mxCell id="target-imgs" value="Target Images&#xa;(Batch)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="40" y="220" width="120" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- Style Extractor -->
+        <mxCell id="style-extractor" value="Style Extractor" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=12;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="240" y="120" width="140" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- Style Profile Box -->
+        <mxCell id="style-profile" value="Style Profile&#xa;─────────&#xa;• LAB mean/std&#xa;• L histogram&#xa;• Saturation stats" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=10;align=left;spacingLeft=10;verticalAlign=top;spacingTop=5" vertex="1" parent="1">
+          <mxGeometry x="420" y="100" width="130" height="100" as="geometry" />
+        </mxCell>
+
+        <!-- Arrow: Ref to Extractor -->
+        <mxCell id="arrow1" value="" style="endArrow=classic;html=1;strokeWidth=2;strokeColor=#6c8ebf" edge="1" parent="1" source="ref-img" target="style-extractor">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Arrow: Extractor to Profile -->
+        <mxCell id="arrow2" value="" style="endArrow=classic;html=1;strokeWidth=2;strokeColor=#d6b656" edge="1" parent="1" source="style-extractor" target="style-profile">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Processing Pipeline Group -->
+        <mxCell id="pipeline-bg" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8f9fa;strokeColor=#cccccc;strokeWidth=2;dashed=1" vertex="1" parent="1">
+          <mxGeometry x="230" y="250" width="520" height="180" as="geometry" />
+        </mxCell>
+
+        <mxCell id="pipeline-title" value="COLOR TRANSFER PIPELINE" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontSize=12;fontStyle=1;fontColor=#666666" vertex="1" parent="1">
+          <mxGeometry x="400" y="255" width="200" height="20" as="geometry" />
+        </mxCell>
+
+        <!-- CLAHE -->
+        <mxCell id="clahe" value="CLAHE&#xa;(Exposure&#xa;Normalize)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11" vertex="1" parent="1">
+          <mxGeometry x="250" y="290" width="90" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- Skin Detection -->
+        <mxCell id="skin-detect" value="Skin Detection&#xa;(YCbCr)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11" vertex="1" parent="1">
+          <mxGeometry x="360" y="290" width="100" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- LAB Mean Shift -->
+        <mxCell id="lab-shift" value="LAB Mean Shift&#xa;(Reinhard)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="480" y="290" width="100" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- Neon Protection -->
+        <mxCell id="neon-protect" value="Neon Protection&#xa;(Saturation)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11" vertex="1" parent="1">
+          <mxGeometry x="600" y="290" width="100" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- Skin Mask -->
+        <mxCell id="skin-mask" value="Skin Mask" style="ellipse;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=10" vertex="1" parent="1">
+          <mxGeometry x="375" y="370" width="70" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- Neon Mask -->
+        <mxCell id="neon-mask" value="Neon Mask" style="ellipse;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=10" vertex="1" parent="1">
+          <mxGeometry x="615" y="370" width="70" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- Pipeline Arrows -->
+        <mxCell id="p-arrow1" value="" style="endArrow=classic;html=1;strokeWidth=1.5;strokeColor=#333333" edge="1" parent="1" source="clahe" target="skin-detect">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="p-arrow2" value="" style="endArrow=classic;html=1;strokeWidth=1.5;strokeColor=#333333" edge="1" parent="1" source="skin-detect" target="lab-shift">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="p-arrow3" value="" style="endArrow=classic;html=1;strokeWidth=1.5;strokeColor=#333333" edge="1" parent="1" source="lab-shift" target="neon-protect">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Mask arrows -->
+        <mxCell id="m-arrow1" value="" style="endArrow=classic;html=1;strokeWidth=1;strokeColor=#d79b00;dashed=1" edge="1" parent="1" source="skin-detect" target="skin-mask">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="m-arrow2" value="" style="endArrow=classic;html=1;strokeWidth=1;strokeColor=#b85450;dashed=1" edge="1" parent="1" source="neon-protect" target="neon-mask">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Target to Pipeline -->
+        <mxCell id="arrow3" value="" style="endArrow=classic;html=1;strokeWidth=2;strokeColor=#82b366" edge="1" parent="1" source="target-imgs" target="clahe">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Style Profile to LAB Shift -->
+        <mxCell id="arrow4" value="" style="endArrow=classic;html=1;strokeWidth=2;strokeColor=#d6b656;dashed=1" edge="1" parent="1" source="style-profile" target="lab-shift">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Output -->
+        <mxCell id="output" value="Processed&#xa;Images" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="800" y="290" width="100" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- Pipeline to Output -->
+        <mxCell id="arrow5" value="" style="endArrow=classic;html=1;strokeWidth=2;strokeColor=#82b366" edge="1" parent="1" source="neon-protect" target="output">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Web Interface -->
+        <mxCell id="web-group" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#deebf7;strokeColor=#6c8ebf;strokeWidth=2;dashed=1" vertex="1" parent="1">
+          <mxGeometry x="950" y="100" width="180" height="320" as="geometry" />
+        </mxCell>
+
+        <mxCell id="web-title" value="WEB INTERFACE" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontSize=12;fontStyle=1;fontColor=#6c8ebf" vertex="1" parent="1">
+          <mxGeometry x="980" y="110" width="120" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="fastapi" value="FastAPI&#xa;(app.py)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11" vertex="1" parent="1">
+          <mxGeometry x="980" y="145" width="120" height="50" as="geometry" />
+        </mxCell>
+
+        <mxCell id="upload" value="Upload Handler" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10" vertex="1" parent="1">
+          <mxGeometry x="980" y="210" width="120" height="40" as="geometry" />
+        </mxCell>
+
+        <mxCell id="ui-controls" value="UI Controls&#xa;• Strength sliders&#xa;• Protection toggles" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;align=left;spacingLeft=5" vertex="1" parent="1">
+          <mxGeometry x="980" y="265" width="120" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="download" value="Download Results" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10" vertex="1" parent="1">
+          <mxGeometry x="980" y="340" width="120" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- Web arrows -->
+        <mxCell id="w-arrow1" value="" style="endArrow=classic;html=1;strokeWidth=1;strokeColor=#6c8ebf" edge="1" parent="1" source="fastapi" target="upload">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="w-arrow2" value="" style="endArrow=classic;html=1;strokeWidth=1;strokeColor=#6c8ebf" edge="1" parent="1" source="upload" target="ui-controls">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="w-arrow3" value="" style="endArrow=classic;html=1;strokeWidth=1;strokeColor=#6c8ebf" edge="1" parent="1" source="ui-controls" target="download">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Output to Web -->
+        <mxCell id="arrow6" value="" style="endArrow=classic;startArrow=classic;html=1;strokeWidth=2;strokeColor=#6c8ebf;dashed=1" edge="1" parent="1" source="output" target="web-group">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Legend -->
+        <mxCell id="legend-bg" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#cccccc" vertex="1" parent="1">
+          <mxGeometry x="40" y="320" width="160" height="130" as="geometry" />
+        </mxCell>
+
+        <mxCell id="legend-title" value="LEGEND" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontSize=11;fontStyle=1;fontColor=#666666" vertex="1" parent="1">
+          <mxGeometry x="80" y="325" width="80" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="leg1" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10" vertex="1" parent="1">
+          <mxGeometry x="50" y="350" width="20" height="15" as="geometry" />
+        </mxCell>
+        <mxCell id="leg1-txt" value="Input/Reference" style="text;html=1;strokeColor=none;fillColor=none;fontSize=10" vertex="1" parent="1">
+          <mxGeometry x="75" y="347" width="100" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="leg2" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10" vertex="1" parent="1">
+          <mxGeometry x="50" y="370" width="20" height="15" as="geometry" />
+        </mxCell>
+        <mxCell id="leg2-txt" value="Style/Color Transfer" style="text;html=1;strokeColor=none;fillColor=none;fontSize=10" vertex="1" parent="1">
+          <mxGeometry x="75" y="367" width="100" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="leg3" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=10" vertex="1" parent="1">
+          <mxGeometry x="50" y="390" width="20" height="15" as="geometry" />
+        </mxCell>
+        <mxCell id="leg3-txt" value="Skin Protection" style="text;html=1;strokeColor=none;fillColor=none;fontSize=10" vertex="1" parent="1">
+          <mxGeometry x="75" y="387" width="100" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="leg4" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=10" vertex="1" parent="1">
+          <mxGeometry x="50" y="410" width="20" height="15" as="geometry" />
+        </mxCell>
+        <mxCell id="leg4-txt" value="Neon Protection" style="text;html=1;strokeColor=none;fillColor=none;fontSize=10" vertex="1" parent="1">
+          <mxGeometry x="75" y="407" width="100" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="leg5" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10" vertex="1" parent="1">
+          <mxGeometry x="50" y="430" width="20" height="15" as="geometry" />
+        </mxCell>
+        <mxCell id="leg5-txt" value="Target/Output" style="text;html=1;strokeColor=none;fillColor=none;fontSize=10" vertex="1" parent="1">
+          <mxGeometry x="75" y="427" width="100" height="20" as="geometry" />
+        </mxCell>
+
+        <!-- File References -->
+        <mxCell id="files-bg" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#cccccc" vertex="1" parent="1">
+          <mxGeometry x="40" y="470" width="700" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="files-title" value="SOURCE FILES:" style="text;html=1;strokeColor=none;fillColor=none;fontSize=10;fontStyle=1;fontColor=#666666" vertex="1" parent="1">
+          <mxGeometry x="50" y="475" width="100" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="files-list" value="style_extractor.py → Style Profile  |  color_transfer.py → LAB Shift + Protections  |  skin_protection.py → YCbCr Detection  |  neon_protection.py → Saturation Clamp  |  batch_processor.py → Batch Loop  |  web/app.py → FastAPI" style="text;html=1;strokeColor=none;fillColor=none;fontSize=9;fontColor=#333333;align=left" vertex="1" parent="1">
+          <mxGeometry x="50" y="495" width="680" height="30" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

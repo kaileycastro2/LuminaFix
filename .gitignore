@@ -1,0 +1,10 @@
+venv/
+__pycache__/
+*.pyc
+uploads/
+models/deep_preset/*.pth.tar
+LuminaFix_Export/
+LuminaFix_Export.zip
+archive/
+.env
+*.zip

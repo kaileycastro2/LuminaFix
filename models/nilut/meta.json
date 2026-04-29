@@ -1,0 +1,56 @@
+{
+  "reference1": {
+    "last_trained": "2026-01-10T12:26:23.590898",
+    "training_samples": 12,
+    "epochs": 200,
+    "model_path": "/home/Ubuntu/Desktop/style_transfer_upwork/models/nilut/reference1.pt"
+  },
+  "reference2": {
+    "last_trained": "2026-01-10T12:30:29.386559",
+    "training_samples": 12,
+    "epochs": 200,
+    "model_path": "/home/Ubuntu/Desktop/style_transfer_upwork/models/nilut/reference2.pt"
+  },
+  "reference3": {
+    "last_trained": "2026-01-10T12:34:41.321703",
+    "training_samples": 12,
+    "epochs": 200,
+    "model_path": "/home/Ubuntu/Desktop/style_transfer_upwork/models/nilut/reference3.pt"
+  },
+  "reference4": {
+    "last_trained": "2026-01-10T12:38:59.605469",
+    "training_samples": 12,
+    "epochs": 200,
+    "model_path": "/home/Ubuntu/Desktop/style_transfer_upwork/models/nilut/reference4.pt"
+  },
+  "natural_clean_film": {
+    "last_trained": "2026-01-15T10:00:00.000000",
+    "training_samples": 46,
+    "epochs": 500
+  },
+  "moody_cinematic": {
+    "last_trained": "2026-01-15T10:00:00.000000",
+    "training_samples": 46,
+    "epochs": 500
+  },
+  "bright_airy_cream_whites": {
+    "last_trained": "2026-01-15T10:00:00.000000",
+    "training_samples": 46,
+    "epochs": 500
+  },
+  "high_contrast_street_editorial": {
+    "last_trained": "2026-01-15T10:00:00.000000",
+    "training_samples": 46,
+    "epochs": 500
+  },
+  "warm_vintage_kodachrome": {
+    "last_trained": "2026-01-15T10:00:00.000000",
+    "training_samples": 46,
+    "epochs": 500
+  },
+  "universal": {
+    "last_trained": "2026-02-16T08:34:33.040665",
+    "training_samples": 178,
+    "epochs": 1500
+  }
+}
