@@ -398,11 +398,13 @@ async def process_image_all_methods(
                 selected_methods=non_nilut_methods,
                 reference_name=ref_name, nilut_mode=nilut_mode
             ))
+            gc.collect()
             _log_memory("process-all: non-nilut done")
 
         if nilut_methods and selected_nilut_models:
             from src.transfers.base import TransferResult
             masks = processor.compute_masks(target_image)
+            gc.collect()
             _log_memory("process-all: masks computed")
 
             for model_id in selected_nilut_models:
@@ -425,7 +427,11 @@ async def process_image_all_methods(
                     model_display_name=model_display_name, model_id=model_id,
                     requested_variants=nilut_methods, color_strength=color_strength,
                 ))
+                gc.collect()
                 _log_memory(f"process-all: nilut model {model_id} done")
+
+            del masks
+            gc.collect()
 
         _log_memory("process-all: all processing done")
         outputs, errors = {}, {}

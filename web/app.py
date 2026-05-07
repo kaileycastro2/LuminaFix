@@ -55,6 +55,19 @@ def _log_startup_memory():
 
 _log_startup_memory()
 
+# Pre-load MediaPipe FaceLandmarker in master process so --preload shares
+# the model across forked workers via copy-on-write (saves ~300 MB per worker).
+try:
+    from src.face_landmarker import get_face_landmarker
+    if get_face_landmarker() is not None:
+        logger.info("MediaPipe FaceLandmarker pre-loaded at startup")
+    else:
+        logger.warning("MediaPipe FaceLandmarker pre-load returned None")
+except Exception:
+    logger.exception("MediaPipe FaceLandmarker pre-load failed")
+
+_log_startup_memory()
+
 # Ensure directories exist
 config = get_config()
 config.web.ensure_directories()

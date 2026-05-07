@@ -5,7 +5,7 @@ Detects eye regions using MediaPipe FaceLandmarker to protect them
 during color transfer. Eyes contain distinctive colors (iris) that
 can become distorted during style transfer.
 
-Falls back to OpenCV Haar cascade if MediaPipe is unavailable.
+If MediaPipe is unavailable, returns no mask (eyes are not protected).
 """
 
 import cv2
@@ -32,7 +32,7 @@ RIGHT_IRIS_INDICES = [473, 474, 475, 476, 477]
 
 
 class EyeProtection:
-    """Detects eye regions using MediaPipe FaceLandmarker (with OpenCV fallback)."""
+    """Detects eye regions using MediaPipe FaceLandmarker."""
 
     def __init__(
         self,
@@ -43,18 +43,6 @@ class EyeProtection:
         self.blur_kernel = blur_kernel if blur_kernel % 2 == 1 else blur_kernel + 1
         self.expand_pixels = expand_pixels
         self.max_num_faces = max_num_faces
-        self._face_cascade = None
-        self._eye_cascade = None
-
-    def _get_eye_cascade(self):
-        """Lazy-initialize OpenCV Haar cascade for eyes (fallback)."""
-        if self._eye_cascade is None:
-            path = cv2.data.haarcascades + 'haarcascade_eye.xml'
-            self._eye_cascade = cv2.CascadeClassifier(path)
-        if self._face_cascade is None:
-            path = cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
-            self._face_cascade = cv2.CascadeClassifier(path)
-        return self._eye_cascade
 
     def detect(self, image: np.ndarray) -> Optional[np.ndarray]:
         """
@@ -65,14 +53,15 @@ class EyeProtection:
 
         Returns:
             Soft mask (float32, 0-1) where 1 = eye region,
-            or None if no face detected.
+            or None if MediaPipe unavailable / no faces found.
         """
         from .face_landmarker import detect_landmarks
 
         result = detect_landmarks(image)
-        if result is not None:
-            return self._detect_mediapipe(image, result)
-        return self._detect_opencv_fallback(image)
+        if result is None:
+            logger.debug("Eye detect: MediaPipe unavailable or no faces — skipping eye protection")
+            return None
+        return self._detect_mediapipe(image, result)
 
     def _detect_mediapipe(self, image: np.ndarray, result) -> Optional[np.ndarray]:
         """Precise eye detection using MediaPipe FaceLandmarker landmarks."""
@@ -105,67 +94,6 @@ class EyeProtection:
 
         return self._finalize_mask(mask, "MediaPipe", len(result.face_landmarks))
 
-    def _detect_opencv_fallback(self, image: np.ndarray) -> Optional[np.ndarray]:
-        """Fallback eye detection using Haar cascades."""
-        h, w = image.shape[:2]
-        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-
-        self._get_eye_cascade()
-        min_face_size = max(30, int(min(w, h) * 0.05))
-
-        try:
-            faces = self._face_cascade.detectMultiScale(
-                gray, scaleFactor=1.1, minNeighbors=5,
-                minSize=(min_face_size, min_face_size)
-            )
-        except Exception as e:
-            logger.warning(f"Face detection failed: {e}")
-            return None
-
-        if len(faces) == 0:
-            logger.debug("No faces detected for eye protection (fallback)")
-            return None
-
-        faces = sorted(faces, key=lambda f: f[2] * f[3], reverse=True)
-        faces = faces[:self.max_num_faces]
-
-        mask = np.zeros((h, w), dtype=np.uint8)
-
-        for (fx, fy, fw, fh) in faces:
-            # Search for eyes only in the upper half of the face
-            roi_y = fy
-            roi_h = int(fh * 0.55)
-            roi_gray = gray[roi_y:roi_y + roi_h, fx:fx + fw]
-
-            eyes = self._eye_cascade.detectMultiScale(
-                roi_gray, scaleFactor=1.1, minNeighbors=5,
-                minSize=(max(10, int(fw * 0.08)), max(10, int(fh * 0.04)))
-            )
-
-            if len(eyes) == 0:
-                # Geometric estimation fallback
-                for side in [0.30, 0.70]:
-                    eye_cx = int(fx + fw * side)
-                    eye_cy = int(fy + fh * 0.38)
-                    eye_hw = max(int(fw * 0.12), 5)
-                    eye_hh = max(int(fh * 0.05), 3)
-                    cv2.ellipse(
-                        mask, (eye_cx, eye_cy),
-                        (eye_hw, eye_hh), 0, 0, 360, 255, -1
-                    )
-            else:
-                for (ex, ey, ew, eh) in eyes[:2]:
-                    eye_cx = fx + ex + ew // 2
-                    eye_cy = roi_y + ey + eh // 2
-                    eye_hw = ew // 2
-                    eye_hh = eh // 2
-                    cv2.ellipse(
-                        mask, (eye_cx, eye_cy),
-                        (eye_hw, eye_hh), 0, 0, 360, 255, -1
-                    )
-
-        return self._finalize_mask(mask, "OpenCV fallback", len(faces))
-
     def _finalize_mask(self, mask: np.ndarray, method: str, face_count: int) -> Optional[np.ndarray]:
         """Apply dilation, blur, and normalize the mask."""
         if self.expand_pixels > 0:
@@ -192,5 +120,4 @@ class EyeProtection:
 
     def release(self):
         """Release resources."""
-        self._face_cascade = None
-        self._eye_cascade = None
+        pass
