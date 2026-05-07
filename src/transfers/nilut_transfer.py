@@ -5,6 +5,7 @@ Based on: "NILUT: Conditional Neural Implicit 3D Lookup Tables for Image Enhance
 Reference: https://github.com/mv-lab/nilut
 """
 
+import time
 from typing import Optional
 from pathlib import Path
 import numpy as np
@@ -1167,23 +1168,39 @@ class NILUTTransfer(AbstractTransfer):
         torch, _ = _ensure_torch()
 
         original_h, original_w = image.shape[:2]
+        total_t0 = time.perf_counter()
+        logger.info("NILUT timing [start]: image %dx%d (%.1fM pixels)",
+                    original_w, original_h, (original_w * original_h) / 1e6)
 
         # ===== PRE-PROCESSING =====
         # Extract luminance details from original
+        t0 = time.perf_counter()
         original_detail = self._extract_luminance_details(image)
+        logger.info("NILUT timing [extract_luminance_details]: %.0f ms",
+                    (time.perf_counter() - t0) * 1000)
 
         # Detect skin regions
+        t0 = time.perf_counter()
         skin_mask = self._detect_skin_mask(image)
         skin_mask_3d = skin_mask[:, :, np.newaxis]
+        logger.info("NILUT timing [detect_skin_mask]: %.0f ms",
+                    (time.perf_counter() - t0) * 1000)
 
         # Detect neon regions
+        t0 = time.perf_counter()
         neon_mask = self._detect_neon_mask(image)
         neon_mask_3d = neon_mask[:, :, np.newaxis]
+        logger.info("NILUT timing [detect_neon_mask]: %.0f ms",
+                    (time.perf_counter() - t0) * 1000)
 
         # Separate highlights and shadows for detail preservation
+        t0 = time.perf_counter()
         highlight_mask, shadow_mask = self._separate_highlights_shadows(image)
+        logger.info("NILUT timing [separate_highlights_shadows]: %.0f ms",
+                    (time.perf_counter() - t0) * 1000)
 
         # ===== BUILD/LOAD LUT =====
+        t0 = time.perf_counter()
         # Use universal model if available and enabled
         if self._use_universal and self._universal_model is not None:
             # Build LUT using universal model with reference stats
@@ -1204,9 +1221,12 @@ class NILUTTransfer(AbstractTransfer):
 
             # Build LUT once (fast: only 1089 inference points)
             lut = self._build_ab_lut()
+        logger.info("NILUT timing [build_lut]: %.0f ms",
+                    (time.perf_counter() - t0) * 1000)
 
         # ===== APPLY NILUT TRANSFORMATION =====
         # Convert full image to LAB
+        t0 = time.perf_counter()
         h, w = image.shape[:2]
         lab = cv2.cvtColor(image, cv2.COLOR_BGR2LAB).astype(np.float32)
         lab_original = lab.copy()
@@ -1215,11 +1235,17 @@ class NILUTTransfer(AbstractTransfer):
         l_channel = lab[:, :, 0:1]  # Keep original L (luminance)
         ab_channels = lab[:, :, 1:3]  # A,B to transform
         ab_original = ab_channels.copy()  # Save original A,B for neon areas
+        logger.info("NILUT timing [bgr2lab + copy]: %.0f ms",
+                    (time.perf_counter() - t0) * 1000)
 
         # Apply LUT (fast: uses pre-computed lookup)
+        t0 = time.perf_counter()
         ab_transformed = self._apply_ab_lut(ab_channels, lut)
+        logger.info("NILUT timing [apply_ab_lut]: %.0f ms",
+                    (time.perf_counter() - t0) * 1000)
 
         # Blend A,B based on strength (allows extrapolation beyond 1.0)
+        t0 = time.perf_counter()
         ab_transformed = ab_channels * (1.0 - strength) + ab_transformed * strength
 
         # SKIP transformation on neon areas - keep original A,B
@@ -1241,16 +1267,27 @@ class NILUTTransfer(AbstractTransfer):
 
         # Merge enhanced L with final A,B
         lab_result = np.concatenate([l_channel, ab_final], axis=2).astype(np.uint8)
+        logger.info("NILUT timing [strength_blend + neon_blend + detail + chroma]: %.0f ms",
+                    (time.perf_counter() - t0) * 1000)
 
         # Convert back to BGR
+        t0 = time.perf_counter()
         result = cv2.cvtColor(lab_result, cv2.COLOR_LAB2BGR)
+        logger.info("NILUT timing [lab2bgr]: %.0f ms",
+                    (time.perf_counter() - t0) * 1000)
 
         # ===== POST-PROCESSING: SKIN TONE PRESERVATION =====
         # Blend original skin tones back at 70% weight
         # This preserves natural skin color while allowing some style transfer
+        t0 = time.perf_counter()
         result = result.astype(np.float32)
         image_float = image.astype(np.float32)
         result = result * (1.0 - skin_mask_3d * 0.7) + image_float * (skin_mask_3d * 0.7)
         result = result.astype(np.uint8)
+        logger.info("NILUT timing [skin_blend_final]: %.0f ms",
+                    (time.perf_counter() - t0) * 1000)
+
+        logger.info("NILUT timing [TOTAL _apply_transfer]: %.0f ms",
+                    (time.perf_counter() - total_t0) * 1000)
 
         return result
