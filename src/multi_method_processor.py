@@ -227,8 +227,8 @@ class MultiMethodProcessor:
             nilut.load_reference(reference_image, use_universal=True)
 
             # If per-segment strengths supplied, build a per-pixel strength map
-            # from ADE20K class names. Per-segment values are RELATIVE weights;
-            # the global color_strength is applied as a multiplier on top.
+            # from ADE20K class names. Per-segment values are ABSOLUTE; the
+            # global color_strength only applies to "other" / unmatched pixels.
             strength_map = None
             if per_segment_strengths:
                 try:
@@ -236,9 +236,8 @@ class MultiMethodProcessor:
                     strength_map = build_strength_map_for_image(
                         target_image,
                         per_segment_strengths,
-                        default_strength=1.0,
+                        default_strength=color_strength,
                         image_path=target_image_path,
-                        global_multiplier=color_strength,
                     )
                 except Exception as seg_err:
                     logger.warning(

@@ -54,11 +54,11 @@
                     <!-- Filter Strength Slider (Universal) -->
                     <div class="setting-group">
                         <div class="setting-group-header">
-                            <span>Filter Strength</span>
+                            <span>Filter Strength (Other regions)</span>
                             <span class="setting-val" id="color-strength-value">90%</span>
                         </div>
                         <input type="range" id="color-strength" min="0" max="200" value="90">
-                        <p class="setting-hint">Applies to all versions. Per-image sliders below each result.</p>
+                        <p class="setting-hint">Strength for unmatched pixels. Per-region sliders below override their own areas.</p>
                     </div>
 
                     <!-- Luminance -->
@@ -76,7 +76,7 @@
                             <span>Per-Region Strength (NILUT)</span>
                             <span class="setting-val" id="segments-status">loading…</span>
                         </div>
-                        <p class="setting-hint">Tune NILUT strength for each region. 100% = full effect, 0% = keep original.</p>
+                        <p class="setting-hint">Each slider sets its region's strength directly (not multiplied by Filter Strength). 100% = full effect, 0% = keep original.</p>
                         <div id="segment-sliders"></div>
                     </div>
 
@@ -142,6 +142,6 @@
         </div>
     </div>
 
-    <script src="/static/js/results.js?v=37"></script>
+    <script src="/static/js/results.js?v=38"></script>
 </body>
 </html>

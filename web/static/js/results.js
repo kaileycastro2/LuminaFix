@@ -217,12 +217,14 @@ async function initSegmentSliders() {
         return;
     }
 
-    state.segmentNames = data.segments.map(s => s.name);
+    // Drop the "other" bucket — the global Filter Strength slider controls it.
+    const visibleSegments = data.segments.filter(s => s.name !== 'other');
+    state.segmentNames = visibleSegments.map(s => s.name);
     state.segmentStrengths = {};
     if (statusEl) statusEl.textContent = '';
 
     container.innerHTML = '';
-    for (const seg of data.segments) {
+    for (const seg of visibleSegments) {
         const name = seg.name;
         const pct = seg.pixel_pct != null ? seg.pixel_pct : null;
         const def = defaultStrengthFor(name);
