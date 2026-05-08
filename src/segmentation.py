@@ -233,6 +233,7 @@ def build_strength_map_for_image(
     per_segment_strengths: Dict[str, float],
     default_strength: float = 1.0,
     image_path: Optional[str] = None,
+    global_multiplier: float = 1.0,
 ) -> Optional[np.ndarray]:
     """
     Build an HxW float32 strength map using ADE20K class names from the UI.
@@ -240,9 +241,14 @@ def build_strength_map_for_image(
     Args:
         image_bgr: target image (BGR).
         per_segment_strengths: {"tree": 0.2, "sky": 1.0, "other": 0.7, ...}.
+            Values are RELATIVE per-region weights in [0, ~1.5].
         default_strength: applied where no class match (also used for "other"
-            unless the caller passed it explicitly).
+            unless the caller passed it explicitly). Treated as a relative
+            weight, then multiplied by global_multiplier.
         image_path: cache key.
+        global_multiplier: scalar multiplier applied uniformly on top of the
+            per-segment weights (i.e. the global "Filter Strength" slider).
+            E.g. global=0.5 halves every region's effect.
 
     Returns:
         HxW float32 array, or None if segmentation unavailable (caller should
@@ -253,27 +259,26 @@ def build_strength_map_for_image(
         return None
 
     id2label = _LAZY.id2label
-    other_strength = float(per_segment_strengths.get(OTHER_BUCKET, default_strength))
+    other_weight = float(per_segment_strengths.get(OTHER_BUCKET, default_strength))
 
-    # Start with "other" everywhere; override pixels for named classes.
-    out = np.full(label_map.shape, other_strength, dtype=np.float32)
+    # Per-region weights (pre-global). Start with "other" everywhere.
+    out = np.full(label_map.shape, other_weight, dtype=np.float32)
 
-    name_to_strength: Dict[str, float] = {}
+    name_to_weight: Dict[str, float] = {}
     for name, val in per_segment_strengths.items():
         if name == OTHER_BUCKET:
             continue
         try:
-            name_to_strength[str(name).lower()] = float(val)
+            name_to_weight[str(name).lower()] = float(val)
         except (TypeError, ValueError):
             continue
 
-    if not name_to_strength:
-        return out
-
     for class_id, label in id2label.items():
-        s = name_to_strength.get(label)
-        if s is None:
+        w = name_to_weight.get(label)
+        if w is None:
             continue
-        out[label_map == class_id] = s
+        out[label_map == class_id] = w
 
+    # Apply global slider as a uniform multiplier.
+    out *= float(global_multiplier)
     return out

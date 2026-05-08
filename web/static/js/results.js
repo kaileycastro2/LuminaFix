@@ -385,6 +385,10 @@ function setupLiveSettings() {
         state.selectedStrengths = [newStrength];
         // Reset per-image overrides when universal changes
         state.perImageStrengths = {};
+        // Invalidate cache: per-segment values aren't part of the cache key,
+        // so global+segment combinations could otherwise return stale results.
+        state.strengthCache = {};
+        state.isPreprocessing = false;
         debouncedReprocess();
     });
 
