@@ -133,18 +133,52 @@ function getCurrentSettings() {
     };
 }
 
-// Default per-segment strengths (percent). Tuned to fix the "grass turned yellow" issue:
-// grass and skin get reduced NILUT influence by default.
-const SEGMENT_DEFAULT_STRENGTHS = {
+// Per-segment defaults (percent) chosen by class name.
+// Anything not listed falls back to DEFAULT_FALLBACK_STRENGTH.
+// Tuned so warm-colored areas get full NILUT and natural greens/skin get less.
+const DEFAULT_FALLBACK_STRENGTH = 70;
+const SEGMENT_DEFAULT_BY_NAME = {
     sky: 100,
+    cloud: 100,
+    wall: 90,
+    building: 90,
+    house: 90,
+    ceiling: 90,
+    floor: 70,
+    road: 70,
+    sidewalk: 70,
+    earth: 70,
+    sand: 70,
+    rock: 80,
+    water: 90,
+    sea: 100,
+    river: 90,
+    tree: 25,
     grass: 20,
-    building: 80,
+    plant: 25,
+    field: 25,
+    flower: 60,
+    person: 30,
     skin: 30,
     other: 70
 };
 
+function defaultStrengthFor(name) {
+    if (name in SEGMENT_DEFAULT_BY_NAME) return SEGMENT_DEFAULT_BY_NAME[name];
+    return DEFAULT_FALLBACK_STRENGTH;
+}
+
+function getTargetFilenameForCurrentResult() {
+    const res = state.results && state.results[state.currentIndex];
+    if (!res) return null;
+    if (res.filename) return res.filename;
+    if (res.targetFilename) return res.targetFilename;
+    if (res.target_filename) return res.target_filename;
+    if (res.inputUrl) return res.inputUrl.split('/').pop();
+    return null;
+}
+
 function getSegmentStrengthsPayload() {
-    // Returns JSON string of {segment: 0..1.5} or "" if no segment data.
     if (!state.segmentNames || state.segmentNames.length === 0) return '';
     const payload = {};
     for (const name of state.segmentNames) {
@@ -158,36 +192,48 @@ function getSegmentStrengthsPayload() {
 async function initSegmentSliders() {
     const container = document.getElementById('segment-sliders');
     const statusEl = document.getElementById('segments-status');
+    const group = document.getElementById('segment-strengths-group');
     if (!container) return;
 
-    try {
-        const res = await fetch('/api/segments');
-        const data = await res.json();
-        if (!data.segments || data.segments.length === 0 || !data.available) {
-            if (statusEl) statusEl.textContent = 'unavailable';
-            const group = document.getElementById('segment-strengths-group');
-            if (group) group.style.display = 'none';
-            return;
-        }
-        state.segmentNames = data.segments;
-        if (statusEl) statusEl.textContent = '';
-    } catch (e) {
-        if (statusEl) statusEl.textContent = 'unavailable';
-        const group = document.getElementById('segment-strengths-group');
+    const targetFilename = getTargetFilenameForCurrentResult();
+    if (!targetFilename) {
         if (group) group.style.display = 'none';
         return;
     }
 
+    if (statusEl) statusEl.textContent = 'analyzing…';
+    let data;
+    try {
+        const url = `/api/analyze-segments?target_filename=${encodeURIComponent(targetFilename)}`;
+        const res = await fetch(url);
+        data = await res.json();
+    } catch (e) {
+        if (group) group.style.display = 'none';
+        return;
+    }
+
+    if (!data.available || !data.segments || data.segments.length === 0) {
+        if (group) group.style.display = 'none';
+        return;
+    }
+
+    state.segmentNames = data.segments.map(s => s.name);
+    state.segmentStrengths = {};
+    if (statusEl) statusEl.textContent = '';
+
     container.innerHTML = '';
-    for (const name of state.segmentNames) {
-        const def = SEGMENT_DEFAULT_STRENGTHS[name] != null ? SEGMENT_DEFAULT_STRENGTHS[name] : 70;
+    for (const seg of data.segments) {
+        const name = seg.name;
+        const pct = seg.pixel_pct != null ? seg.pixel_pct : null;
+        const def = defaultStrengthFor(name);
         state.segmentStrengths[name] = def;
 
         const row = document.createElement('div');
         row.className = 'setting-group-header';
         row.style.marginTop = '8px';
+        const coverage = pct != null ? ` <span style="opacity:0.6;font-weight:400;">(${pct}%)</span>` : '';
         row.innerHTML = `
-            <span style="text-transform:capitalize;">${name}</span>
+            <span style="text-transform:capitalize;">${name}${coverage}</span>
             <span class="setting-val" id="seg-val-${name}">${def}%</span>
         `;
         container.appendChild(row);
@@ -205,7 +251,7 @@ async function initSegmentSliders() {
             if (valEl) valEl.textContent = v + '%';
             if (state.debounceTimer) clearTimeout(state.debounceTimer);
             state.debounceTimer = setTimeout(() => {
-                state.strengthCache = {}; // invalidate — segment strengths changed
+                state.strengthCache = {};
                 reprocessAllStrengths();
             }, 500);
         });

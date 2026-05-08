@@ -192,6 +192,7 @@ class MultiMethodProcessor:
         requested_variants: List[str],
         color_strength: float,
         per_segment_strengths: Optional[Dict[str, float]] = None,
+        target_image_path: Optional[str] = None,
     ) -> Dict[str, TransferResult]:
         """
         Process all requested NILUT variants for a single model version.
@@ -226,16 +227,16 @@ class MultiMethodProcessor:
             nilut.load_reference(reference_image, use_universal=True)
 
             # If per-segment strengths supplied, build a per-pixel strength map
-            # using SegFormer; otherwise use scalar color_strength.
+            # from ADE20K class names; otherwise use scalar color_strength.
             strength_map = None
             if per_segment_strengths:
                 try:
-                    from .segmentation import segment as _segment, build_strength_map
-                    seg_masks = _segment(target_image)
-                    strength_map = build_strength_map(
-                        seg_masks,
+                    from .segmentation import build_strength_map_for_image
+                    strength_map = build_strength_map_for_image(
+                        target_image,
                         per_segment_strengths,
                         default_strength=color_strength,
+                        image_path=target_image_path,
                     )
                 except Exception as seg_err:
                     logger.warning(

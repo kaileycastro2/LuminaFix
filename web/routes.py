@@ -275,16 +275,38 @@ async def get_available_methods():
     return JSONResponse({"methods": get_processor().list_available_methods()})
 
 
-@router.get("/api/segments")
-async def get_segments():
-    """List the segment names used for per-region NILUT tuning."""
+@router.get("/api/analyze-segments")
+async def analyze_segments(target_filename: str, max_segments: int = 6):
+    """
+    Run SegFormer on the target image and return its top-N ADE20K classes
+    so the UI can build dynamic per-region sliders.
+    """
     try:
-        from src.segmentation import SEGMENT_NAMES, is_available as seg_available
-        return JSONResponse({
-            "segments": list(SEGMENT_NAMES),
-            "available": bool(seg_available()),
-        })
+        from src.segmentation import top_segments, is_available as seg_available
     except Exception as e:
+        return JSONResponse({"segments": [], "available": False, "error": str(e)})
+
+    if not seg_available():
+        return JSONResponse({"segments": [], "available": False})
+
+    config = get_web_config()
+    target_path = config.upload_dir / target_filename
+    if not target_path.exists():
+        raise HTTPException(status_code=404, detail="Target image not found")
+
+    target_image = load_image_as_cv2(target_path)
+    if target_image is None:
+        raise HTTPException(status_code=500, detail="Could not load target image")
+
+    try:
+        segments = top_segments(
+            target_image,
+            image_path=str(target_path),
+            max_segments=max(1, min(int(max_segments), 12)),
+        )
+        return JSONResponse({"segments": segments, "available": True})
+    except Exception as e:
+        logger.exception("analyze_segments failed")
         return JSONResponse({"segments": [], "available": False, "error": str(e)})
 
 
@@ -451,6 +473,7 @@ async def process_image_all_methods(
                     model_display_name=model_display_name, model_id=model_id,
                     requested_variants=nilut_methods, color_strength=color_strength,
                     per_segment_strengths=parsed_segment_strengths,
+                    target_image_path=str(target_path),
                 ))
                 gc.collect()
                 _log_memory(f"process-all: nilut model {model_id} done")
