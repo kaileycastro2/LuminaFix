@@ -191,6 +191,7 @@ class MultiMethodProcessor:
         model_id: str,
         requested_variants: List[str],
         color_strength: float,
+        per_segment_strengths: Optional[Dict[str, float]] = None,
     ) -> Dict[str, TransferResult]:
         """
         Process all requested NILUT variants for a single model version.
@@ -224,10 +225,36 @@ class MultiMethodProcessor:
             nilut.load_universal_model(model_path)
             nilut.load_reference(reference_image, use_universal=True)
 
+            # If per-segment strengths supplied, build a per-pixel strength map
+            # using SegFormer; otherwise use scalar color_strength.
+            strength_map = None
+            if per_segment_strengths:
+                try:
+                    from .segmentation import segment as _segment, build_strength_map
+                    seg_masks = _segment(target_image)
+                    strength_map = build_strength_map(
+                        seg_masks,
+                        per_segment_strengths,
+                        default_strength=color_strength,
+                    )
+                except Exception as seg_err:
+                    logger.warning(
+                        "Segmentation failed (%s) — falling back to scalar strength",
+                        seg_err,
+                    )
+                    strength_map = None
+
             with TransferTimer() as timer:
-                base_result = nilut.transfer(
-                    target=target_image, strength=color_strength, masks=masks
-                )
+                if strength_map is not None:
+                    base_result = nilut.transfer_with_strength_map(
+                        target=target_image,
+                        strength_map=strength_map,
+                        masks=masks,
+                    )
+                else:
+                    base_result = nilut.transfer(
+                        target=target_image, strength=color_strength, masks=masks
+                    )
 
             for variant_key, enhance_method, display_suffix in NILUT_VARIANT_DEFS:
                 if variant_key not in requested_variants:

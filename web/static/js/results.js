@@ -70,7 +70,9 @@ let state = {
     comparisonMode: false,
     selectedStrengths: [90],
     strengthCache: {},
-    perImageStrengths: {} // key: "refName" -> strength value (for per-image overrides)
+    perImageStrengths: {}, // key: "refName" -> strength value (for per-image overrides)
+    segmentNames: [],      // populated by /api/segments
+    segmentStrengths: {}   // {sky: 100, grass: 20, building: 80, skin: 30, other: 70} (percent)
 };
 
 // ============================================
@@ -129,6 +131,86 @@ function getCurrentSettings() {
         neonProtection: document.getElementById('neon-protection').checked,
         lipProtection: document.getElementById('lip-protection').checked
     };
+}
+
+// Default per-segment strengths (percent). Tuned to fix the "grass turned yellow" issue:
+// grass and skin get reduced NILUT influence by default.
+const SEGMENT_DEFAULT_STRENGTHS = {
+    sky: 100,
+    grass: 20,
+    building: 80,
+    skin: 30,
+    other: 70
+};
+
+function getSegmentStrengthsPayload() {
+    // Returns JSON string of {segment: 0..1.5} or "" if no segment data.
+    if (!state.segmentNames || state.segmentNames.length === 0) return '';
+    const payload = {};
+    for (const name of state.segmentNames) {
+        const pct = state.segmentStrengths[name];
+        if (pct == null) continue;
+        payload[name] = pct / 100;
+    }
+    return Object.keys(payload).length ? JSON.stringify(payload) : '';
+}
+
+async function initSegmentSliders() {
+    const container = document.getElementById('segment-sliders');
+    const statusEl = document.getElementById('segments-status');
+    if (!container) return;
+
+    try {
+        const res = await fetch('/api/segments');
+        const data = await res.json();
+        if (!data.segments || data.segments.length === 0 || !data.available) {
+            if (statusEl) statusEl.textContent = 'unavailable';
+            const group = document.getElementById('segment-strengths-group');
+            if (group) group.style.display = 'none';
+            return;
+        }
+        state.segmentNames = data.segments;
+        if (statusEl) statusEl.textContent = '';
+    } catch (e) {
+        if (statusEl) statusEl.textContent = 'unavailable';
+        const group = document.getElementById('segment-strengths-group');
+        if (group) group.style.display = 'none';
+        return;
+    }
+
+    container.innerHTML = '';
+    for (const name of state.segmentNames) {
+        const def = SEGMENT_DEFAULT_STRENGTHS[name] != null ? SEGMENT_DEFAULT_STRENGTHS[name] : 70;
+        state.segmentStrengths[name] = def;
+
+        const row = document.createElement('div');
+        row.className = 'setting-group-header';
+        row.style.marginTop = '8px';
+        row.innerHTML = `
+            <span style="text-transform:capitalize;">${name}</span>
+            <span class="setting-val" id="seg-val-${name}">${def}%</span>
+        `;
+        container.appendChild(row);
+
+        const slider = document.createElement('input');
+        slider.type = 'range';
+        slider.min = '0';
+        slider.max = '150';
+        slider.value = String(def);
+        slider.id = `seg-strength-${name}`;
+        slider.addEventListener('input', () => {
+            const v = parseInt(slider.value, 10);
+            state.segmentStrengths[name] = v;
+            const valEl = document.getElementById(`seg-val-${name}`);
+            if (valEl) valEl.textContent = v + '%';
+            if (state.debounceTimer) clearTimeout(state.debounceTimer);
+            state.debounceTimer = setTimeout(() => {
+                state.strengthCache = {}; // invalidate — segment strengths changed
+                reprocessAllStrengths();
+            }, 500);
+        });
+        container.appendChild(slider);
+    }
 }
 
 // ============================================
@@ -225,6 +307,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     setupExportZip();
     setupLiveSettings();
     setupComparisonMode();
+    initSegmentSliders();
 
     if (state.selectedStrengths.length > 1 || (state.selectedStrengths.length === 1 && state.selectedStrengths[0] !== initialStrength)) {
         reprocessAllStrengths();
@@ -449,6 +532,8 @@ async function reprocessAllStrengths() {
             formData.append('methods', JSON.stringify(selectedMethods));
             formData.append('nilut_mode', nilutMode);
             formData.append('nilut_models', nilutModels);
+            const segPayload = getSegmentStrengthsPayload();
+            if (segPayload) formData.append('per_segment_strengths', segPayload);
 
             try {
                 const response = await fetch('/api/process-all', { method: 'POST', body: formData });
@@ -1138,6 +1223,8 @@ window.reprocessSingleImage = async function(slider) {
     formData.append('methods', JSON.stringify(selectedMethods));
     formData.append('nilut_mode', nilutMode);
     formData.append('nilut_models', nilutModels);
+    const segPayload2 = getSegmentStrengthsPayload();
+    if (segPayload2) formData.append('per_segment_strengths', segPayload2);
 
     try {
         const response = await fetch('/api/process-all', { method: 'POST', body: formData });

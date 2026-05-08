@@ -70,6 +70,16 @@
                         <input type="range" id="luminance-strength" min="0" max="100" value="0">
                     </div>
 
+                    <!-- Per-segment NILUT strength (built dynamically by results.js) -->
+                    <div class="setting-group" id="segment-strengths-group">
+                        <div class="setting-group-header">
+                            <span>Per-Region Strength (NILUT)</span>
+                            <span class="setting-val" id="segments-status">loading…</span>
+                        </div>
+                        <p class="setting-hint">Tune NILUT strength for each region. 100% = full effect, 0% = keep original.</p>
+                        <div id="segment-sliders"></div>
+                    </div>
+
                     <!-- Protection toggles hidden — always enabled -->
                     <div style="display:none;">
                         <input type="checkbox" id="skin-protection" checked>
@@ -132,6 +142,6 @@
         </div>
     </div>
 
-    <script src="/static/js/results.js?v=34"></script>
+    <script src="/static/js/results.js?v=35"></script>
 </body>
 </html>

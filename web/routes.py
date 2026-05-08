@@ -275,6 +275,19 @@ async def get_available_methods():
     return JSONResponse({"methods": get_processor().list_available_methods()})
 
 
+@router.get("/api/segments")
+async def get_segments():
+    """List the segment names used for per-region NILUT tuning."""
+    try:
+        from src.segmentation import SEGMENT_NAMES, is_available as seg_available
+        return JSONResponse({
+            "segments": list(SEGMENT_NAMES),
+            "available": bool(seg_available()),
+        })
+    except Exception as e:
+        return JSONResponse({"segments": [], "available": False, "error": str(e)})
+
+
 @router.post("/api/process")
 async def process_image(
     target_filename: str = Form(...),
@@ -340,7 +353,8 @@ async def process_image_all_methods(
     eye_protection: str = Form("true"),
     methods: str = Form('["reinhard", "nilut"]'),
     nilut_mode: str = Form("per_reference"),
-    nilut_models: str = Form('["latest"]')
+    nilut_models: str = Form('["latest"]'),
+    per_segment_strengths: str = Form("")
 ):
     try:
         selected_methods = json.loads(methods)
@@ -350,6 +364,16 @@ async def process_image_all_methods(
         selected_nilut_models = json.loads(nilut_models)
     except (json.JSONDecodeError, TypeError):
         selected_nilut_models = ["latest"]
+
+    # Per-segment NILUT strengths: {"sky": 1.0, "grass": 0.2, "skin": 0.3, ...}
+    parsed_segment_strengths = None
+    if per_segment_strengths:
+        try:
+            raw = json.loads(per_segment_strengths)
+            if isinstance(raw, dict):
+                parsed_segment_strengths = {str(k): float(v) for k, v in raw.items()}
+        except (json.JSONDecodeError, TypeError, ValueError):
+            parsed_segment_strengths = None
 
     skin_prot = parse_bool(skin_protection)
     neon_prot = parse_bool(neon_protection)
@@ -426,6 +450,7 @@ async def process_image_all_methods(
                     masks=masks, model_path=str(model_path),
                     model_display_name=model_display_name, model_id=model_id,
                     requested_variants=nilut_methods, color_strength=color_strength,
+                    per_segment_strengths=parsed_segment_strengths,
                 ))
                 gc.collect()
                 _log_memory(f"process-all: nilut model {model_id} done")

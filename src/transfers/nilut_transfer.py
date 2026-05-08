@@ -1134,6 +1134,47 @@ class NILUTTransfer(AbstractTransfer):
 
         return result
 
+    def transfer_with_strength_map(
+        self,
+        target: np.ndarray,
+        strength_map: np.ndarray,
+        masks: Optional[ProtectionMasks] = None,
+    ) -> np.ndarray:
+        """
+        Apply NILUT with a per-pixel strength map (segment-aware tuning).
+
+        Skips the scalar-strength postprocess blend in AbstractTransfer because
+        per-pixel blending already happens inside _apply_transfer.
+
+        Args:
+            target: BGR target image (uint8).
+            strength_map: HxW float32 array; each pixel's NILUT blend weight in [0, ~1.5].
+            masks: optional ProtectionMasks (skin/neon/lips/eyes).
+
+        Returns:
+            BGR uint8 result.
+        """
+        import cv2
+
+        if not self._reference_loaded:
+            raise RuntimeError(f"{self.method_name}: Reference not loaded.")
+
+        if strength_map.shape[:2] != target.shape[:2]:
+            strength_map = cv2.resize(
+                strength_map,
+                (target.shape[1], target.shape[0]),
+                interpolation=cv2.INTER_LINEAR,
+            )
+
+        original = target.copy()
+        preprocessed = self._preprocess(target)
+        result = self._apply_transfer(preprocessed, strength_map)
+
+        if masks is not None:
+            result = self._apply_protection(original, result, masks)
+
+        return result
+
     def _apply_transfer(
         self,
         image: np.ndarray,
@@ -1238,8 +1279,15 @@ class NILUTTransfer(AbstractTransfer):
                     (time.perf_counter() - t0) * 1000)
 
         # Blend A,B based on strength (allows extrapolation beyond 1.0)
+        # `strength` may be a scalar OR an HxW per-pixel map (segment-aware tuning).
         t0 = time.perf_counter()
-        ab_transformed = ab_channels * (1.0 - strength) + ab_transformed * strength
+        if isinstance(strength, np.ndarray):
+            s_map = strength.astype(np.float32)
+            if s_map.ndim == 2:
+                s_map = s_map[:, :, np.newaxis]
+            ab_transformed = ab_channels * (1.0 - s_map) + ab_transformed * s_map
+        else:
+            ab_transformed = ab_channels * (1.0 - strength) + ab_transformed * strength
 
         # SKIP transformation on neon areas - keep original A,B
         ab_final = ab_transformed * (1.0 - neon_mask_3d) + ab_original * neon_mask_3d
