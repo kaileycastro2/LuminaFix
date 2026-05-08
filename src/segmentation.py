@@ -180,8 +180,8 @@ def _get_or_compute_label_map(
 def top_segments(
     image_bgr: np.ndarray,
     image_path: Optional[str] = None,
-    max_segments: int = 6,
-    min_pixel_pct: float = 2.0,
+    max_segments: int = 8,
+    min_pixel_pct: float = 0.5,
 ) -> List[Dict[str, float]]:
     """
     Return the most prominent ADE20K classes in this image.

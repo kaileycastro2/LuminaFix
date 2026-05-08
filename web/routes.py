@@ -276,7 +276,7 @@ async def get_available_methods():
 
 
 @router.get("/api/analyze-segments")
-async def analyze_segments(target_filename: str, max_segments: int = 6):
+async def analyze_segments(target_filename: str, max_segments: int = 8):
     """
     Run SegFormer on the target image and return its top-N ADE20K classes
     so the UI can build dynamic per-region sliders.
