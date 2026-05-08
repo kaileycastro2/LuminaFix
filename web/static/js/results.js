@@ -72,7 +72,8 @@ let state = {
     strengthCache: {},
     perImageStrengths: {}, // key: "refName" -> strength value (for per-image overrides)
     segmentNames: [],      // populated by /api/segments
-    segmentStrengths: {}   // {sky: 100, grass: 20, building: 80, skin: 30, other: 70} (percent)
+    segmentStrengths: {},  // {sky: 100, grass: 20, ...} (percent)
+    segmentTouched: {}     // {sky: true} — only true once the user moves that slider
 };
 
 // ============================================
@@ -179,9 +180,12 @@ function getTargetFilenameForCurrentResult() {
 }
 
 function getSegmentStrengthsPayload() {
+    // Only send sliders the user has explicitly moved. Untouched segments
+    // fall through to the backend's default_strength (= global Filter Strength).
     if (!state.segmentNames || state.segmentNames.length === 0) return '';
     const payload = {};
     for (const name of state.segmentNames) {
+        if (!state.segmentTouched[name]) continue;
         const pct = state.segmentStrengths[name];
         if (pct == null) continue;
         payload[name] = pct / 100;
@@ -221,6 +225,7 @@ async function initSegmentSliders() {
     const visibleSegments = data.segments.filter(s => s.name !== 'other');
     state.segmentNames = visibleSegments.map(s => s.name);
     state.segmentStrengths = {};
+    state.segmentTouched = {};
     if (statusEl) statusEl.textContent = '';
 
     container.innerHTML = '';
@@ -249,6 +254,7 @@ async function initSegmentSliders() {
         slider.addEventListener('input', () => {
             const v = parseInt(slider.value, 10);
             state.segmentStrengths[name] = v;
+            state.segmentTouched[name] = true; // lock this segment's value
             const valEl = document.getElementById(`seg-val-${name}`);
             if (valEl) valEl.textContent = v + '%';
             if (state.debounceTimer) clearTimeout(state.debounceTimer);
