@@ -376,7 +376,9 @@ async def process_image_all_methods(
     methods: str = Form('["reinhard", "nilut"]'),
     nilut_mode: str = Form("per_reference"),
     nilut_models: str = Form('["latest"]'),
-    per_segment_strengths: str = Form("")
+    per_segment_strengths: str = Form(""),
+    curve_strength: float = Form(0.5),
+    saturation_boost: float = Form(1.4)
 ):
     try:
         selected_methods = json.loads(methods)
@@ -474,6 +476,8 @@ async def process_image_all_methods(
                     requested_variants=nilut_methods, color_strength=color_strength,
                     per_segment_strengths=parsed_segment_strengths,
                     target_image_path=str(target_path),
+                    curve_strength=curve_strength,
+                    saturation_boost=saturation_boost,
                 ))
                 gc.collect()
                 _log_memory(f"process-all: nilut model {model_id} done")

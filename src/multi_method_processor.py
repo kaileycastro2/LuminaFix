@@ -193,6 +193,8 @@ class MultiMethodProcessor:
         color_strength: float,
         per_segment_strengths: Optional[Dict[str, float]] = None,
         target_image_path: Optional[str] = None,
+        curve_strength: float = 0.5,
+        saturation_boost: float = 1.4,
     ) -> Dict[str, TransferResult]:
         """
         Process all requested NILUT variants for a single model version.
@@ -285,7 +287,19 @@ class MultiMethodProcessor:
                 else:
                     # Standard enhancement via method name
                     enhance_fn = getattr(nilut, enhance_method)
-                    enhanced = enhance_fn(base_result.copy())
+                    if enhance_method == "apply_tonecurve_saturation_enhancement":
+                        enhanced = enhance_fn(
+                            base_result.copy(),
+                            curve_strength=curve_strength,
+                            saturation_boost=saturation_boost,
+                        )
+                    elif enhance_method == "apply_tonecurve_enhancement":
+                        enhanced = enhance_fn(
+                            base_result.copy(),
+                            curve_strength=curve_strength,
+                        )
+                    else:
+                        enhanced = enhance_fn(base_result.copy())
                     enhanced = self._protection.apply_protection(target_image, enhanced, masks)
                     results[result_key] = TransferResult.success_result(
                         image=enhanced,

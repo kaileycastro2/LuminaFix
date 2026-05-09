@@ -85,7 +85,7 @@ function getSelectedStrengths() {
 }
 
 function buildCacheKey(targetFilename, refName, strength, settings) {
-    return `${targetFilename}_${refName}_${strength}_${settings.luminanceStrength}_${settings.skinProtection}_${settings.neonProtection}_${settings.lipProtection}`;
+    return `${targetFilename}_${refName}_${strength}_${settings.luminanceStrength}_${settings.skinProtection}_${settings.neonProtection}_${settings.lipProtection}_${settings.curveStrength}_${settings.saturationBoost}`;
 }
 
 function getBaseMethodId(methodId) {
@@ -126,11 +126,15 @@ function extractNilutModelIds(results) {
 }
 
 function getCurrentSettings() {
+    const curveEl = document.getElementById('curve-strength');
+    const satEl = document.getElementById('saturation-boost');
     return {
         luminanceStrength: document.getElementById('luminance-strength').value,
         skinProtection: document.getElementById('skin-protection').checked,
         neonProtection: document.getElementById('neon-protection').checked,
-        lipProtection: document.getElementById('lip-protection').checked
+        lipProtection: document.getElementById('lip-protection').checked,
+        curveStrength: curveEl ? parseInt(curveEl.value) / 100 : 0.5,
+        saturationBoost: satEl ? parseInt(satEl.value) / 100 : 1.4
     };
 }
 
@@ -408,6 +412,34 @@ function setupLiveSettings() {
         debouncedReprocess();
     });
 
+    const curveEl = document.getElementById('curve-strength');
+    const curveValEl = document.getElementById('curve-strength-value');
+    if (curveEl && curveValEl) {
+        curveEl.addEventListener('input', (e) => {
+            curveValEl.textContent = e.target.value + '%';
+        });
+        curveEl.addEventListener('change', () => {
+            state.strengthCache = {};
+            state.isPreprocessing = false;
+            state.perImageStrengths = {};
+            debouncedReprocess();
+        });
+    }
+
+    const satEl = document.getElementById('saturation-boost');
+    const satValEl = document.getElementById('saturation-boost-value');
+    if (satEl && satValEl) {
+        satEl.addEventListener('input', (e) => {
+            satValEl.textContent = (parseInt(e.target.value) / 100).toFixed(2) + '×';
+        });
+        satEl.addEventListener('change', () => {
+            state.strengthCache = {};
+            state.isPreprocessing = false;
+            state.perImageStrengths = {};
+            debouncedReprocess();
+        });
+    }
+
     ['skin-protection', 'neon-protection', 'lip-protection'].forEach(id => {
         document.getElementById(id).addEventListener('change', () => {
             state.strengthCache = {};
@@ -590,6 +622,8 @@ async function reprocessAllStrengths() {
             formData.append('methods', JSON.stringify(selectedMethods));
             formData.append('nilut_mode', nilutMode);
             formData.append('nilut_models', nilutModels);
+            formData.append('curve_strength', settings.curveStrength);
+            formData.append('saturation_boost', settings.saturationBoost);
             const segPayload = getSegmentStrengthsPayload();
             if (segPayload) formData.append('per_segment_strengths', segPayload);
 
@@ -700,6 +734,7 @@ function showCurrentResult() {
     }
 
     grid.style.setProperty('--method-count', methods.length);
+    grid.setAttribute('data-cols', methods.length);
     const isMultiStrength = false; // Single slider now
 
     // Header row

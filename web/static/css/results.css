@@ -1420,3 +1420,54 @@
     color: var(--text-3);
     font-size: 0.9rem;
 }
+
+/* ============================================
+   Single-variant layout polish
+   When only one method is shown, constrain width and tighten spacing
+   so the result doesn't float in a huge empty row.
+   ============================================ */
+.version-grid[data-cols="1"] {
+    max-width: 980px;
+    margin: 0 auto;
+}
+
+.version-grid[data-cols="1"] .grid-header-row,
+.version-grid[data-cols="1"] .grid-row {
+    grid-template-columns: 160px 1fr;
+}
+
+.version-grid[data-cols="1"] .grid-ref-cell {
+    padding: 0.75rem;
+    align-self: stretch;
+}
+
+.version-grid[data-cols="1"] .grid-ref-cell .ref-thumb {
+    width: 120px;
+    height: 120px;
+}
+
+.version-grid[data-cols="1"] .grid-ref-cell .ref-name {
+    max-width: 120px;
+}
+
+.version-grid[data-cols="1"] .grid-cell {
+    padding: 0.75rem;
+    align-items: stretch;
+}
+
+.version-grid[data-cols="1"] .slider-wrapper {
+    max-width: 720px;
+    margin: 0 auto;
+    min-height: 320px;
+    max-height: 720px;
+}
+
+.version-grid[data-cols="1"] .cell-actions {
+    justify-content: center;
+}
+
+.version-grid[data-cols="1"] .per-image-strength {
+    max-width: 720px;
+    margin-left: auto;
+    margin-right: auto;
+}

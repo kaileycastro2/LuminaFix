@@ -1001,7 +1001,7 @@ class NILUTTransfer(AbstractTransfer):
 
         return result
 
-    def apply_tonecurve_enhancement(self, image: np.ndarray, curve_strength: float = 0.35) -> np.ndarray:
+    def apply_tonecurve_enhancement(self, image: np.ndarray, curve_strength: float = 0.5) -> np.ndarray:
         """
         Apply S-curve tone mapping for enhanced contrast and 'pop'.
 
@@ -1012,7 +1012,7 @@ class NILUTTransfer(AbstractTransfer):
 
         Args:
             image: BGR image (NILUT result)
-            curve_strength: Strength of S-curve effect (0-1), default 0.6
+            curve_strength: Strength of S-curve effect (0-1)
 
         Returns:
             BGR image with S-curve tone enhancement applied (excluding skin)
@@ -1029,13 +1029,9 @@ class NILUTTransfer(AbstractTransfer):
         # Extract L channel and normalize to 0-1
         l_channel = lab[:, :, 0] / 255.0
 
-        # Apply gentler S-curve: f(x) = 2x^2 - x^3 (milder S-shaped curve)
-        # This formula creates a smoother transition:
-        # - Dark areas (0-0.5) get slightly darker
-        # - Bright areas (0.5-1) get slightly brighter
-        # - Midtones remain relatively unchanged
-        # - Less aggressive than 3x^2 - 2x^3
-        l_curved = 2 * l_channel**2 - l_channel**3
+        # True smoothstep S-curve: f(x) = 3x^2 - 2x^3
+        # Symmetric around 0.5: darkens shadows, brightens highlights, midtones stable.
+        l_curved = 3 * l_channel**2 - 2 * l_channel**3
 
         # Blend with original based on strength (default 60%)
         l_final = l_channel * (1.0 - curve_strength) + l_curved * curve_strength
@@ -1052,7 +1048,7 @@ class NILUTTransfer(AbstractTransfer):
 
         return result
 
-    def apply_tonecurve_saturation_enhancement(self, image: np.ndarray, curve_strength: float = 0.35, saturation_boost: float = 1.25) -> np.ndarray:
+    def apply_tonecurve_saturation_enhancement(self, image: np.ndarray, curve_strength: float = 0.5, saturation_boost: float = 1.4) -> np.ndarray:
         """
         Apply S-curve tone mapping PLUS enhanced saturation for maximum color separation and depth.
 
@@ -1062,8 +1058,8 @@ class NILUTTransfer(AbstractTransfer):
 
         Args:
             image: BGR image (NILUT result)
-            curve_strength: Strength of S-curve effect (0-1), default 0.35
-            saturation_boost: Chroma multiplier (1.25 = 25% boost)
+            curve_strength: Strength of S-curve effect (0-1)
+            saturation_boost: Chroma multiplier (1.4 = 40% boost)
 
         Returns:
             BGR image with tone curve and saturation enhancement applied (excluding skin)
@@ -1080,8 +1076,8 @@ class NILUTTransfer(AbstractTransfer):
         # Extract L channel and normalize to 0-1
         l_channel = lab[:, :, 0] / 255.0
 
-        # Apply gentler S-curve: f(x) = 2x^2 - x^3
-        l_curved = 2 * l_channel**2 - l_channel**3
+        # True smoothstep S-curve: f(x) = 3x^2 - 2x^3
+        l_curved = 3 * l_channel**2 - 2 * l_channel**3
 
         # Blend with original based on strength
         l_final = l_channel * (1.0 - curve_strength) + l_curved * curve_strength
