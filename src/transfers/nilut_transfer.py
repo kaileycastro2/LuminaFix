@@ -164,6 +164,7 @@ class NILUTTransfer(AbstractTransfer):
         self._device = None
         self._reference_colors = None
         self._reference_stats = None  # For universal model: (A_mean, A_std, B_mean, B_std)
+        self._reference_l_stats = None  # (L_mean, L_std) of reference, range 0-255
         self._use_universal = use_universal
         self._torch_available = self._check_torch()
 
@@ -335,6 +336,17 @@ class NILUTTransfer(AbstractTransfer):
         torch, _ = _ensure_torch()
         torch.save(self._model.state_dict(), path)
         logger.info(f"NILUT model saved to {path}")
+
+    def _compute_reference_l_stats(self, image: np.ndarray) -> tuple:
+        """
+        Compute L channel mean and std (in 0-255 range) from reference image.
+
+        Used to match the target's tonality to the reference via shift+scale,
+        replacing the synthetic S-curve.
+        """
+        import cv2
+        l = cv2.cvtColor(image, cv2.COLOR_BGR2LAB)[:, :, 0].astype(np.float32)
+        return float(l.mean()), float(l.std())
 
     def _compute_reference_stats(self, image: np.ndarray) -> tuple:
         """
@@ -729,6 +741,9 @@ class NILUTTransfer(AbstractTransfer):
         if not self._torch_available:
             raise RuntimeError("PyTorch is not available")
 
+        # Cache reference L stats for tone matching (used by post-NILUT enhancements)
+        self._reference_l_stats = self._compute_reference_l_stats(image)
+
         # Determine which mode to use
         if use_universal is None:
             use_universal = self._use_universal
@@ -1003,21 +1018,23 @@ class NILUTTransfer(AbstractTransfer):
 
     def apply_tonecurve_enhancement(self, image: np.ndarray, curve_strength: float = 0.5) -> np.ndarray:
         """
-        Apply S-curve tone mapping for enhanced contrast and 'pop'.
+        Match the target's L (luminance) statistics to the reference's
+        (Reinhard-style on L): shift to reference mean, scale to reference std.
 
-        S-curve makes darks darker and brights brighter smoothly,
-        adding depth and visual impact without harsh clipping.
-
-        Skin regions are protected - tone curve is NOT applied to skin.
+        Skin regions are protected.
 
         Args:
             image: BGR image (NILUT result)
-            curve_strength: Strength of S-curve effect (0-1)
+            curve_strength: Blend factor for the matched L (0-1).
+                            0 = original L, 1 = fully matched.
 
         Returns:
-            BGR image with S-curve tone enhancement applied (excluding skin)
+            BGR image with L-stat matching applied (excluding skin)
         """
         import cv2
+
+        if self._reference_l_stats is None or curve_strength <= 0:
+            return image
 
         # Detect skin regions
         skin_mask = self._detect_skin_mask(image)
@@ -1025,44 +1042,41 @@ class NILUTTransfer(AbstractTransfer):
 
         # Convert to LAB
         lab = cv2.cvtColor(image, cv2.COLOR_BGR2LAB).astype(np.float32)
+        l_channel = lab[:, :, 0]
 
-        # Extract L channel and normalize to 0-1
-        l_channel = lab[:, :, 0] / 255.0
+        # Match L stats to reference: (L - tgt_mean) * (ref_std / tgt_std) + ref_mean
+        ref_mean, ref_std = self._reference_l_stats
+        tgt_mean = float(l_channel.mean())
+        tgt_std = float(l_channel.std())
+        if tgt_std < 1e-3:
+            return image
+        l_matched = (l_channel - tgt_mean) * (ref_std / tgt_std) + ref_mean
 
-        # True smoothstep S-curve: f(x) = 3x^2 - 2x^3
-        # Symmetric around 0.5: darkens shadows, brightens highlights, midtones stable.
-        l_curved = 3 * l_channel**2 - 2 * l_channel**3
+        # Blend by strength
+        l_final = l_channel * (1.0 - curve_strength) + l_matched * curve_strength
+        lab[:, :, 0] = np.clip(l_final, 0, 255)
 
-        # Blend with original based on strength (default 60%)
-        l_final = l_channel * (1.0 - curve_strength) + l_curved * curve_strength
-
-        # Convert back to 0-255 range
-        lab[:, :, 0] = np.clip(l_final * 255.0, 0, 255)
-
-        # Convert back to BGR
         enhanced = cv2.cvtColor(lab.astype(np.uint8), cv2.COLOR_LAB2BGR)
 
-        # Blend: use original for skin regions, enhanced for non-skin regions
+        # Skin protection: keep original on skin
         result = enhanced.astype(np.float32) * (1.0 - skin_mask_3d) + image.astype(np.float32) * skin_mask_3d
-        result = result.astype(np.uint8)
-
-        return result
+        return result.astype(np.uint8)
 
     def apply_tonecurve_saturation_enhancement(self, image: np.ndarray, curve_strength: float = 0.5, saturation_boost: float = 1.4) -> np.ndarray:
         """
-        Apply S-curve tone mapping PLUS enhanced saturation for maximum color separation and depth.
+        L-stat match (Reinhard on L) to transfer the reference's tonality,
+        plus chroma boost on A,B for color separation.
 
-        Combines tone curve contrast with vibrant color boost.
-
-        Skin regions are protected - tone curve and saturation are NOT applied to skin.
+        Skin regions are protected.
 
         Args:
             image: BGR image (NILUT result)
-            curve_strength: Strength of S-curve effect (0-1)
+            curve_strength: Blend factor for L-stat matching (0-1).
+                            0 = original L, 1 = fully matched.
             saturation_boost: Chroma multiplier (1.4 = 40% boost)
 
         Returns:
-            BGR image with tone curve and saturation enhancement applied (excluding skin)
+            BGR image with L-stat matching + saturation applied (excluding skin)
         """
         import cv2
 
@@ -1072,33 +1086,29 @@ class NILUTTransfer(AbstractTransfer):
 
         # Convert to LAB
         lab = cv2.cvtColor(image, cv2.COLOR_BGR2LAB).astype(np.float32)
+        l_channel = lab[:, :, 0]
 
-        # Extract L channel and normalize to 0-1
-        l_channel = lab[:, :, 0] / 255.0
+        # L-stat matching (only if we have reference stats and strength > 0)
+        if self._reference_l_stats is not None and curve_strength > 0:
+            ref_mean, ref_std = self._reference_l_stats
+            tgt_mean = float(l_channel.mean())
+            tgt_std = float(l_channel.std())
+            if tgt_std >= 1e-3:
+                l_matched = (l_channel - tgt_mean) * (ref_std / tgt_std) + ref_mean
+                l_final = l_channel * (1.0 - curve_strength) + l_matched * curve_strength
+                lab[:, :, 0] = np.clip(l_final, 0, 255)
 
-        # True smoothstep S-curve: f(x) = 3x^2 - 2x^3
-        l_curved = 3 * l_channel**2 - 2 * l_channel**3
-
-        # Blend with original based on strength
-        l_final = l_channel * (1.0 - curve_strength) + l_curved * curve_strength
-
-        # Convert back to 0-255 range
-        lab[:, :, 0] = np.clip(l_final * 255.0, 0, 255)
-
-        # Apply 25% saturation boost to A,B channels
+        # Saturation boost on A,B
         ab_channels = lab[:, :, 1:3]
         ab_mean = np.array([128, 128], dtype=np.float32).reshape(1, 1, 2)
         ab_boosted = ab_mean + (ab_channels - ab_mean) * saturation_boost
         lab[:, :, 1:3] = np.clip(ab_boosted, 0, 255)
 
-        # Convert back to BGR
         enhanced = cv2.cvtColor(lab.astype(np.uint8), cv2.COLOR_LAB2BGR)
 
-        # Blend: use original for skin regions, enhanced for non-skin regions
+        # Skin protection
         result = enhanced.astype(np.float32) * (1.0 - skin_mask_3d) + image.astype(np.float32) * skin_mask_3d
-        result = result.astype(np.uint8)
-
-        return result
+        return result.astype(np.uint8)
 
     def apply_chroma_boost(self, image: np.ndarray, boost_strength: float = 1.35) -> np.ndarray:
         """

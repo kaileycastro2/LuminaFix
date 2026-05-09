@@ -70,14 +70,14 @@
                         <input type="range" id="luminance-strength" min="0" max="100" value="0">
                     </div>
 
-                    <!-- Tone Curve (S-curve contrast) -->
+                    <!-- Tone Match (L-stat matching to reference) -->
                     <div class="setting-group">
                         <div class="setting-group-header">
-                            <span>Tone Curve (Contrast)</span>
+                            <span>Tone Match (Reference)</span>
                             <span class="setting-val" id="curve-strength-value">50%</span>
                         </div>
                         <input type="range" id="curve-strength" min="0" max="100" value="50">
-                        <p class="setting-hint">S-curve contrast applied after NILUT (skin excluded). 0% = off.</p>
+                        <p class="setting-hint">Match target brightness/contrast to reference (skin excluded). 0% = off, 100% = fully matched.</p>
                     </div>
 
                     <!-- Saturation Boost -->
@@ -162,6 +162,6 @@
         </div>
     </div>
 
-    <script src="/static/js/results.js?v=40"></script>
+    <script src="/static/js/results.js?v=41"></script>
 </body>
 </html>
