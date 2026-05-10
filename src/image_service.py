@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Optional
 
 import cv2
+import numpy as np
 
 from .config import get_config
 from .utils import IMAGE_EXTENSIONS
@@ -60,10 +61,15 @@ class ImageService:
         return new_filename
 
     def save_processed(self, image, method_id: str, ref_name: str, target_name: str) -> str:
-        """Save a processed image and return its filename."""
-        output_filename = f"{method_id}_{ref_name}_{target_name}_{uuid.uuid4().hex[:6]}.jpg"
+        """Save a processed image as 16-bit PNG to preserve gradient precision."""
+        output_filename = f"{method_id}_{ref_name}_{target_name}_{uuid.uuid4().hex[:6]}.png"
         output_path = self._processed_dir / output_filename
-        cv2.imwrite(str(output_path), image, [cv2.IMWRITE_JPEG_QUALITY, 95])
+        if image.dtype == np.uint8:
+            img16 = image.astype(np.uint16) * 257
+        else:
+            img16 = np.clip(image, 0, 255).astype(np.float32) * 257.0
+            img16 = np.clip(img16, 0, 65535).astype(np.uint16)
+        cv2.imwrite(str(output_path), img16, [cv2.IMWRITE_PNG_COMPRESSION, 3])
         return output_filename
 
     def resolve_reference_path(self, filename: str) -> Optional[Path]:

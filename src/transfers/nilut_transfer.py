@@ -1330,7 +1330,7 @@ class NILUTTransfer(AbstractTransfer):
         result = result.astype(np.float32)
         image_float = image.astype(np.float32)
         result = result * (1.0 - skin_mask_3d * 0.7) + image_float * (skin_mask_3d * 0.7)
-        result = result.astype(np.uint8)
+        result = np.clip(result, 0, 255)  # keep as float32 to preserve gradient precision
         logger.info("NILUT timing [skin_blend_final]: %.0f ms",
                     (time.perf_counter() - t0) * 1000)
 
