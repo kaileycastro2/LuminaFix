@@ -1140,17 +1140,21 @@ class NILUTTransfer(AbstractTransfer):
                 l_final = l_channel * (1.0 - curve_strength) + l_matched * curve_strength
                 lab[:, :, 0] = np.clip(l_final, 0, 255)
 
-        # Saturation boost on A,B
-        ab_channels = lab[:, :, 1:3]
-        ab_mean = np.array([128, 128], dtype=np.float32).reshape(1, 1, 2)
-        ab_boosted = ab_mean + (ab_channels - ab_mean) * saturation_boost
-        lab[:, :, 1:3] = np.clip(ab_boosted, 0, 255)
+        # Saturation boost on A,B (in-place to avoid 240MB allocation on 30MP images)
+        ab_view = lab[:, :, 1:3]
+        ab_view -= 128.0
+        ab_view *= saturation_boost
+        ab_view += 128.0
+        np.clip(ab_view, 0, 255, out=ab_view)
 
         enhanced = self._lab2bgr_float(lab)
 
-        # Skin protection (keep float32 to preserve gradient precision)
-        result = enhanced * (1.0 - skin_mask_3d) + image_f * skin_mask_3d
-        return np.clip(result, 0, 255)
+        # Skin protection (in-place: enhanced += (image_f - enhanced) * skin_mask_3d)
+        diff = image_f - enhanced
+        diff *= skin_mask_3d
+        enhanced += diff
+        np.clip(enhanced, 0, 255, out=enhanced)
+        return enhanced
 
     def apply_chroma_boost(self, image: np.ndarray, boost_strength: float = 1.35) -> np.ndarray:
         """
@@ -1329,33 +1333,41 @@ class NILUTTransfer(AbstractTransfer):
         logger.info("NILUT timing [apply_ab_lut]: %.0f ms",
                     (time.perf_counter() - t0) * 1000)
 
-        # Blend A,B based on strength (allows extrapolation beyond 1.0)
-        # `strength` may be a scalar OR an HxW per-pixel map (segment-aware tuning).
+        # Blend A,B based on strength (in-place to avoid 240MB allocations on 30MP images)
+        # ab_transformed = ab_channels + (ab_transformed - ab_channels) * strength
         t0 = time.perf_counter()
         if isinstance(strength, np.ndarray):
             s_map = strength.astype(np.float32)
             if s_map.ndim == 2:
                 s_map = s_map[:, :, np.newaxis]
-            ab_transformed = ab_channels * (1.0 - s_map) + ab_transformed * s_map
-        else:
-            ab_transformed = ab_channels * (1.0 - strength) + ab_transformed * strength
+            ab_transformed -= ab_channels
+            ab_transformed *= s_map
+            ab_transformed += ab_channels
+        elif strength != 1.0:
+            ab_transformed -= ab_channels
+            ab_transformed *= strength
+            ab_transformed += ab_channels
 
-        # SKIP transformation on neon areas - keep original A,B
-        ab_final = ab_transformed * (1.0 - neon_mask_3d) + ab_original * neon_mask_3d
+        # SKIP transformation on neon areas (in-place)
+        # ab_final = ab_transformed + (ab_original - ab_transformed) * neon_mask_3d
+        neon_diff = ab_original - ab_transformed
+        neon_diff *= neon_mask_3d
+        ab_transformed += neon_diff
+        ab_final = ab_transformed
+        del neon_diff
 
         # ===== POST-PROCESSING: DETAIL RESTORATION =====
-        # NOTE: CLAHE is NOT applied here in base NILUT
-        # Use apply_clahe_enhancement() separately for contrast enhancement
-        # Restore high-frequency details from original
-        # Add back 30% of original detail to preserve texture
-        l_channel[:, :, 0] = np.clip(l_channel[:, :, 0] + original_detail * 0.3, 0, 255)
+        # Add back 30% of original detail to L (in-place)
+        l_view = l_channel[:, :, 0]
+        l_view += original_detail * 0.3
+        np.clip(l_view, 0, 255, out=l_view)
 
-        # ===== POST-PROCESSING: COLOR SEPARATION & DEPTH =====
-        # Enhance chroma (color separation) selectively
-        # Increase saturation in A,B channels by 10% for better color separation
-        ab_mean = np.array([128, 128], dtype=np.float32).reshape(1, 1, 2)
-        ab_enhanced = ab_mean + (ab_final - ab_mean) * 1.1
-        ab_final = np.clip(ab_enhanced, 0, 255)
+        # ===== POST-PROCESSING: CHROMA BOOST (in-place) =====
+        # ab_final = clip((ab_final - 128) * 1.1 + 128, 0, 255)
+        ab_final -= 128.0
+        ab_final *= 1.1
+        ab_final += 128.0
+        np.clip(ab_final, 0, 255, out=ab_final)
 
         # Merge enhanced L with final A,B (keep as float32 to preserve precision)
         lab_result = np.concatenate([l_channel, ab_final], axis=2).astype(np.float32)
@@ -1368,14 +1380,17 @@ class NILUTTransfer(AbstractTransfer):
         logger.info("NILUT timing [lab2bgr]: %.0f ms",
                     (time.perf_counter() - t0) * 1000)
 
-        # ===== POST-PROCESSING: SKIN TONE PRESERVATION =====
-        # Blend original skin tones back at 70% weight
-        # This preserves natural skin color while allowing some style transfer
+        # ===== POST-PROCESSING: SKIN TONE PRESERVATION (in-place) =====
+        # result = result + (image - result) * (skin_mask * 0.7)
         t0 = time.perf_counter()
-        result = result.astype(np.float32)
-        image_float = image.astype(np.float32)
-        result = result * (1.0 - skin_mask_3d * 0.7) + image_float * (skin_mask_3d * 0.7)
-        result = np.clip(result, 0, 255)  # keep as float32 to preserve gradient precision
+        if result.dtype != np.float32:
+            result = result.astype(np.float32)
+        skin_diff = image.astype(np.float32) - result
+        skin_diff *= skin_mask_3d
+        skin_diff *= 0.7
+        result += skin_diff
+        np.clip(result, 0, 255, out=result)
+        del skin_diff
         logger.info("NILUT timing [skin_blend_final]: %.0f ms",
                     (time.perf_counter() - t0) * 1000)
 

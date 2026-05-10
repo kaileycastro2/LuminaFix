@@ -25,6 +25,13 @@ try:
 except Exception:
     pass
 
+# Let OpenCV use all available CPU cores for cvtColor/resize/etc.
+try:
+    import cv2
+    cv2.setNumThreads(cv2.getNumberOfCPUs())
+except Exception:
+    pass
+
 # Import transfer methods to register them via decorators
 from src.transfers.reinhard_transfer import ReinhardTransfer  # noqa: F401
 try:

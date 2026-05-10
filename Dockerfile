@@ -29,4 +29,4 @@ COPY . .
 
 EXPOSE 8000
 
-CMD ["sh", "-c", "gunicorn web.app:app --bind 0.0.0.0:${PORT:-8000} --workers ${WEB_WORKERS:-4} --worker-class uvicorn.workers.UvicornWorker --preload --timeout 120"]
+CMD ["sh", "-c", "gunicorn web.app:app --bind 0.0.0.0:${PORT:-8000} --workers ${WEB_WORKERS:-4} --worker-class uvicorn.workers.UvicornWorker --preload --timeout 300"]
