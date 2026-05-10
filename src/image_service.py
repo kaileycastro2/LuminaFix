@@ -68,9 +68,9 @@ class ImageService:
         if image.dtype != np.float32:
             image = image.astype(np.float32)
 
-        # Triangular dither: ±0.5 amplitude breaks 8-bit quantization bands
-        noise = np.random.uniform(-0.5, 0.5, image.shape).astype(np.float32)
-        noise += np.random.uniform(-0.5, 0.5, image.shape).astype(np.float32)
+        # Triangular dither: ±1.5 amplitude survives JPEG-95 smoothing
+        noise = np.random.uniform(-1.5, 1.5, image.shape).astype(np.float32)
+        noise += np.random.uniform(-1.5, 1.5, image.shape).astype(np.float32)
         dithered = np.clip(image + noise, 0, 255).astype(np.uint8)
 
         cv2.imwrite(str(output_path), dithered, [cv2.IMWRITE_JPEG_QUALITY, 95])
