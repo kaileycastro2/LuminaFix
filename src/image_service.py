@@ -61,15 +61,19 @@ class ImageService:
         return new_filename
 
     def save_processed(self, image, method_id: str, ref_name: str, target_name: str) -> str:
-        """Save a processed image as 16-bit PNG to preserve gradient precision."""
-        output_filename = f"{method_id}_{ref_name}_{target_name}_{uuid.uuid4().hex[:6]}.png"
+        """Save processed image as JPEG-95 with dithering applied to prevent banding."""
+        output_filename = f"{method_id}_{ref_name}_{target_name}_{uuid.uuid4().hex[:6]}.jpg"
         output_path = self._processed_dir / output_filename
-        if image.dtype == np.uint8:
-            img16 = image.astype(np.uint16) * 257
-        else:
-            img16 = np.clip(image, 0, 255).astype(np.float32) * 257.0
-            img16 = np.clip(img16, 0, 65535).astype(np.uint16)
-        cv2.imwrite(str(output_path), img16, [cv2.IMWRITE_PNG_COMPRESSION, 3])
+
+        if image.dtype != np.float32:
+            image = image.astype(np.float32)
+
+        # Triangular dither: ±0.5 amplitude breaks 8-bit quantization bands
+        noise = np.random.uniform(-0.5, 0.5, image.shape).astype(np.float32)
+        noise += np.random.uniform(-0.5, 0.5, image.shape).astype(np.float32)
+        dithered = np.clip(image + noise, 0, 255).astype(np.uint8)
+
+        cv2.imwrite(str(output_path), dithered, [cv2.IMWRITE_JPEG_QUALITY, 95])
         return output_filename
 
     def resolve_reference_path(self, filename: str) -> Optional[Path]:
