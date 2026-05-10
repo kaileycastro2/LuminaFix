@@ -175,14 +175,14 @@ class AbstractTransfer(ABC):
         if strength <= 0.0:
             return original
 
-        # Blend based on strength
+        # Blend based on strength (keep float32 to preserve gradient precision)
         return cv2.addWeighted(
             original.astype(np.float32),
             1.0 - strength,
             result.astype(np.float32),
             strength,
             0
-        ).astype(np.uint8)
+        )
 
     def _apply_protection(
         self,
@@ -242,4 +242,4 @@ class AbstractTransfer(ABC):
             result = result * (1 - eye_mask * eye_blend) + \
                      original_f * (eye_mask * eye_blend)
 
-        return np.clip(result, 0, 255).astype(np.uint8)
+        return np.clip(result, 0, 255)

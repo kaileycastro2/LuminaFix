@@ -978,6 +978,17 @@ class NILUTTransfer(AbstractTransfer):
 
         return cv2.cvtColor(result_lab, cv2.COLOR_LAB2BGR)
 
+    @staticmethod
+    def _lab2bgr_float(lab):
+        """Convert LAB array (float32 stored in uint8 ranges 0-255) to BGR float32 (0-255)
+        without uint8 quantization. Avoids posterization in smooth gradients."""
+        lab_f = lab.astype(np.float32, copy=True)
+        lab_f[:, :, 0] *= (100.0 / 255.0)
+        lab_f[:, :, 1] -= 128.0
+        lab_f[:, :, 2] -= 128.0
+        bgr = cv2.cvtColor(lab_f, cv2.COLOR_LAB2BGR)
+        return bgr * 255.0
+
     def apply_clahe_enhancement(self, image: np.ndarray) -> np.ndarray:
         """
         Apply CLAHE (Contrast Limited Adaptive Histogram Equalization) to enhance contrast.
@@ -1080,12 +1091,20 @@ class NILUTTransfer(AbstractTransfer):
         """
         import cv2
 
-        # Detect skin regions
-        skin_mask = self._detect_skin_mask(image)
+        # Skin detection requires uint8 BGR (cv2.inRange uses uint8 thresholds)
+        image_for_mask = image if image.dtype == np.uint8 else np.clip(image, 0, 255).astype(np.uint8)
+        skin_mask = self._detect_skin_mask(image_for_mask)
         skin_mask_3d = skin_mask[:, :, np.newaxis]
 
-        # Convert to LAB
-        lab = cv2.cvtColor(image, cv2.COLOR_BGR2LAB).astype(np.float32)
+        # BGR → LAB in float32 to preserve precision from upstream float32 input
+        image_f = image.astype(np.float32)
+        bgr_norm = (image_f / 255.0).astype(np.float32)
+        lab_proper = cv2.cvtColor(bgr_norm, cv2.COLOR_BGR2LAB)
+        # Convert to uint8-range LAB (math below uses 0-255 ranges)
+        lab = np.empty_like(lab_proper)
+        lab[:, :, 0] = lab_proper[:, :, 0] * (255.0 / 100.0)
+        lab[:, :, 1] = lab_proper[:, :, 1] + 128.0
+        lab[:, :, 2] = lab_proper[:, :, 2] + 128.0
         l_channel = lab[:, :, 0]
 
         # L-stat matching (only if we have reference stats and strength > 0)
@@ -1104,11 +1123,11 @@ class NILUTTransfer(AbstractTransfer):
         ab_boosted = ab_mean + (ab_channels - ab_mean) * saturation_boost
         lab[:, :, 1:3] = np.clip(ab_boosted, 0, 255)
 
-        enhanced = cv2.cvtColor(lab.astype(np.uint8), cv2.COLOR_LAB2BGR)
+        enhanced = self._lab2bgr_float(lab)
 
-        # Skin protection
-        result = enhanced.astype(np.float32) * (1.0 - skin_mask_3d) + image.astype(np.float32) * skin_mask_3d
-        return result.astype(np.uint8)
+        # Skin protection (keep float32 to preserve gradient precision)
+        result = enhanced * (1.0 - skin_mask_3d) + image_f * skin_mask_3d
+        return np.clip(result, 0, 255)
 
     def apply_chroma_boost(self, image: np.ndarray, boost_strength: float = 1.35) -> np.ndarray:
         """
@@ -1312,14 +1331,14 @@ class NILUTTransfer(AbstractTransfer):
         ab_enhanced = ab_mean + (ab_final - ab_mean) * 1.1
         ab_final = np.clip(ab_enhanced, 0, 255)
 
-        # Merge enhanced L with final A,B
-        lab_result = np.concatenate([l_channel, ab_final], axis=2).astype(np.uint8)
+        # Merge enhanced L with final A,B (keep as float32 to preserve precision)
+        lab_result = np.concatenate([l_channel, ab_final], axis=2).astype(np.float32)
         logger.info("NILUT timing [strength_blend + neon_blend + detail + chroma]: %.0f ms",
                     (time.perf_counter() - t0) * 1000)
 
-        # Convert back to BGR
+        # Convert back to BGR via float32 path (no uint8 quantization)
         t0 = time.perf_counter()
-        result = cv2.cvtColor(lab_result, cv2.COLOR_LAB2BGR)
+        result = self._lab2bgr_float(lab_result)
         logger.info("NILUT timing [lab2bgr]: %.0f ms",
                     (time.perf_counter() - t0) * 1000)
 

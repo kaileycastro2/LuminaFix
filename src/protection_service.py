@@ -207,7 +207,7 @@ class ProtectionService:
             result = result * (1 - eye_mask * eye_blend) + \
                      original_f * (eye_mask * eye_blend)
 
-        return np.clip(result, 0, 255).astype(np.uint8)
+        return np.clip(result, 0, 255)
 
     def update_settings(
         self,
