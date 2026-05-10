@@ -167,6 +167,7 @@ class NILUTTransfer(AbstractTransfer):
         self._reference_l_stats = None  # (L_mean, L_std) of reference, range 0-255
         self._use_universal = use_universal
         self._torch_available = self._check_torch()
+        self._mask_cache = {}  # fingerprint -> {'skin': arr, 'neon': arr, ...}
 
     def _check_torch(self) -> bool:
         """Check if PyTorch is available."""
@@ -257,6 +258,28 @@ class NILUTTransfer(AbstractTransfer):
         skin_mask = cv2.GaussianBlur(skin_mask, (15, 15), 0)
 
         return skin_mask
+
+    def _get_or_detect_skin_mask(self, image: np.ndarray) -> np.ndarray:
+        """Return cached skin mask if shape matches; else detect and cache."""
+        shape_key = image.shape[:2]
+        if self._mask_cache.get('skin_shape') == shape_key:
+            return self._mask_cache['skin']
+        src = image if image.dtype == np.uint8 else np.clip(image, 0, 255).astype(np.uint8)
+        skin_mask = self._detect_skin_mask(src)
+        self._mask_cache['skin_shape'] = shape_key
+        self._mask_cache['skin'] = skin_mask
+        return skin_mask
+
+    def _get_or_detect_neon_mask(self, image: np.ndarray) -> np.ndarray:
+        """Return cached neon mask if shape matches; else detect and cache."""
+        shape_key = image.shape[:2]
+        if self._mask_cache.get('neon_shape') == shape_key:
+            return self._mask_cache['neon']
+        src = image if image.dtype == np.uint8 else np.clip(image, 0, 255).astype(np.uint8)
+        neon_mask = self._detect_neon_mask(src)
+        self._mask_cache['neon_shape'] = shape_key
+        self._mask_cache['neon'] = neon_mask
+        return neon_mask
 
     def _extract_luminance_details(self, image: np.ndarray) -> np.ndarray:
         """
@@ -982,6 +1005,7 @@ class NILUTTransfer(AbstractTransfer):
     def _lab2bgr_float(lab):
         """Convert LAB array (float32 stored in uint8 ranges 0-255) to BGR float32 (0-255)
         without uint8 quantization. Avoids posterization in smooth gradients."""
+        import cv2
         lab_f = lab.astype(np.float32, copy=True)
         lab_f[:, :, 0] *= (100.0 / 255.0)
         lab_f[:, :, 1] -= 128.0
@@ -1091,9 +1115,8 @@ class NILUTTransfer(AbstractTransfer):
         """
         import cv2
 
-        # Skin detection requires uint8 BGR (cv2.inRange uses uint8 thresholds)
-        image_for_mask = image if image.dtype == np.uint8 else np.clip(image, 0, 255).astype(np.uint8)
-        skin_mask = self._detect_skin_mask(image_for_mask)
+        # Skin detection — reuse cached mask from _apply_transfer if shape matches
+        skin_mask = self._get_or_detect_skin_mask(image)
         skin_mask_3d = skin_mask[:, :, np.newaxis]
 
         # BGR → LAB in float32 to preserve precision from upstream float32 input
@@ -1231,6 +1254,9 @@ class NILUTTransfer(AbstractTransfer):
         logger.info("NILUT timing [start]: image %dx%d (%.1fM pixels)",
                     original_w, original_h, (original_w * original_h) / 1e6)
 
+        # Reset per-request mask cache (target image starts fresh)
+        self._mask_cache = {}
+
         # ===== PRE-PROCESSING =====
         # Extract luminance details from original
         t0 = time.perf_counter()
@@ -1238,16 +1264,16 @@ class NILUTTransfer(AbstractTransfer):
         logger.info("NILUT timing [extract_luminance_details]: %.0f ms",
                     (time.perf_counter() - t0) * 1000)
 
-        # Detect skin regions
+        # Detect skin regions (cached for downstream enhance methods)
         t0 = time.perf_counter()
-        skin_mask = self._detect_skin_mask(image)
+        skin_mask = self._get_or_detect_skin_mask(image)
         skin_mask_3d = skin_mask[:, :, np.newaxis]
         logger.info("NILUT timing [detect_skin_mask]: %.0f ms",
                     (time.perf_counter() - t0) * 1000)
 
-        # Detect neon regions
+        # Detect neon regions (cached)
         t0 = time.perf_counter()
-        neon_mask = self._detect_neon_mask(image)
+        neon_mask = self._get_or_detect_neon_mask(image)
         neon_mask_3d = neon_mask[:, :, np.newaxis]
         logger.info("NILUT timing [detect_neon_mask]: %.0f ms",
                     (time.perf_counter() - t0) * 1000)
