@@ -34,7 +34,6 @@ document.addEventListener('DOMContentLoaded', () => {
         imagePreviewContainer: document.getElementById('image-preview-container'),
         uploadedGrid: document.getElementById('uploaded-grid'),
         uploadCount: document.getElementById('upload-count'),
-        btnAddMore: document.getElementById('btn-add-more'),
         btnClearAll: document.getElementById('btn-clear-all'),
         // Source toggle
         sourceRefBtn: document.getElementById('source-ref-btn'),
@@ -402,15 +401,25 @@ function renderUploadedGrid() {
     if (!elements.uploadedGrid || !elements.imagePreviewContainer) return;
 
     const count = state.uploadedFiles.length;
+    const hero = elements.heroUpload;
+    const dropzone = elements.uploadDropzone;
+
     if (count === 0) {
-        elements.heroUpload.style.display = 'block';
+        // Full-size dropzone, no thumbnails
+        if (hero) hero.classList.remove('compact');
+        if (dropzone) dropzone.classList.remove('compact');
         elements.imagePreviewContainer.style.display = 'none';
         elements.uploadedGrid.innerHTML = '';
         if (elements.uploadCount) elements.uploadCount.textContent = '0 photos';
+        // Restore full prompt
+        setHeroPrompt('Drop images here or <u>browse</u>', 'JPG, PNG, TIFF, WebP up to 50 MB each', false);
         return;
     }
 
-    elements.heroUpload.style.display = 'none';
+    // Compact dropzone + thumbnails strip
+    if (hero) hero.classList.add('compact');
+    if (dropzone) dropzone.classList.add('compact');
+    setHeroPrompt('Drop more photos here or <u>browse to add</u>', `${count}/${MAX_UPLOADS} added`, true);
     elements.imagePreviewContainer.style.display = 'block';
     if (elements.uploadCount) {
         elements.uploadCount.textContent = `${count} photo${count !== 1 ? 's' : ''} (max ${MAX_UPLOADS})`;
@@ -425,6 +434,14 @@ function renderUploadedGrid() {
             </button>
         </div>
     `).join('');
+}
+
+function setHeroPrompt(titleHtml, subText, compact) {
+    if (!elements.heroUpload) return;
+    const titleEl = elements.heroUpload.querySelector('.dropzone-title');
+    const subEl = elements.heroUpload.querySelector('.dropzone-sub');
+    if (titleEl) titleEl.innerHTML = titleHtml;
+    if (subEl) subEl.textContent = subText;
 }
 
 window.removeUploadedFile = function(filename) {
@@ -855,12 +872,6 @@ function setupEventListeners() {
         });
     }
 
-    if (elements.btnAddMore) {
-        elements.btnAddMore.addEventListener('click', (e) => {
-            e.stopPropagation();
-            elements.fileInput.click();
-        });
-    }
     if (elements.btnClearAll) {
         elements.btnClearAll.addEventListener('click', (e) => {
             e.stopPropagation();

@@ -185,6 +185,14 @@
     line-height: 1.2;
 }
 
+.grid-target-cell .target-photo-caption {
+    font-size: 0.65rem;
+    color: var(--text-3);
+    word-break: break-word;
+    line-height: 1.2;
+    margin-top: 0.2rem;
+}
+
 /* ============================================
    Setting Groups
    ============================================ */

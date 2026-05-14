@@ -712,7 +712,7 @@ function showCurrentResult() {
     // Header row
     let html = `
         <div class="grid-header-row ${state.comparisonMode && !isMultiStrength ? 'comparison-mode' : ''}">
-            <div class="grid-corner">Photo</div>
+            <div class="grid-corner">Reference</div>
             ${methods.map(methodId => {
                 const info = getMethodInfo(methodId);
                 if (state.comparisonMode && !isMultiStrength) {
@@ -742,11 +742,21 @@ function showCurrentResult() {
         const tData = result.targetResults[targetFn];
         html += `<div class="grid-row">`;
 
-        // Target cell (the uploaded photo)
-        html += `<div class="grid-ref-cell grid-target-cell">
-            <img src="${tData.targetUrl}" alt="${tData.originalName}" class="target-thumb" onclick="openFullscreen('${tData.targetUrl}')">
-            <span class="target-name">${tData.originalName}</span>
-        </div>`;
+        // Left cell: the reference (style source) — same in every row.
+        // Photo filename goes into the right cell as a caption so each row is identifiable.
+        if (result.refUrl) {
+            html += `<div class="grid-ref-cell grid-target-cell">
+                <img src="${result.refUrl}" alt="${result.refName}" class="target-thumb" onclick="openFullscreen('${result.refUrl}')">
+                <span class="target-name">${result.refName}</span>
+                <span class="target-photo-caption">→ ${tData.originalName}</span>
+            </div>`;
+        } else {
+            html += `<div class="grid-ref-cell grid-target-cell">
+                <div class="target-thumb xmp-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>
+                <span class="target-name">${result.refName}</span>
+                <span class="target-photo-caption">→ ${tData.originalName}</span>
+            </div>`;
+        }
 
         // Method cells
         methods.forEach(methodId => {
