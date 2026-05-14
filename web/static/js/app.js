@@ -1,12 +1,14 @@
 // ============================================
 // LuminaFix Pro - Main Application JS
-// Single image + multiple references workflow
+// Multiple photos + single reference workflow
 // ============================================
+
+const MAX_UPLOADS = 25;
 
 const state = {
     references: [],
-    selectedReferences: new Set(),
-    uploadedFile: null, // Single file: {file, filename, url, originalName}
+    selectedReference: null, // single filename
+    uploadedFiles: [], // [{file, filename, url, originalName}]
     processedResults: [],
     nilutModels: [],
     nilutMode: null,
@@ -30,9 +32,10 @@ document.addEventListener('DOMContentLoaded', () => {
         uploadDropzone: document.getElementById('upload-dropzone'),
         fileInput: document.getElementById('file-input'),
         imagePreviewContainer: document.getElementById('image-preview-container'),
-        previewImage: document.getElementById('preview-image'),
-        btnReplace: document.getElementById('btn-replace'),
-        imageInfo: document.getElementById('image-info'),
+        uploadedGrid: document.getElementById('uploaded-grid'),
+        uploadCount: document.getElementById('upload-count'),
+        btnAddMore: document.getElementById('btn-add-more'),
+        btnClearAll: document.getElementById('btn-clear-all'),
         // Source toggle
         sourceRefBtn: document.getElementById('source-ref-btn'),
         sourceXmpBtn: document.getElementById('source-xmp-btn'),
@@ -102,7 +105,7 @@ async function loadReferences() {
 
         if (data.references.length === 0) {
             elements.referenceGrid.innerHTML = '<div class="loading-skeleton">No reference images found.</div>';
-            state.selectedReferences.clear();
+            state.selectedReference = null;
             updateSelectionCount();
             return;
         }
@@ -113,11 +116,11 @@ async function loadReferences() {
         // Build category tabs
         buildCategoryTabs();
 
-        // Clean up stale selections
+        // Clear stale selection
         const existingFilenames = new Set(data.references.map(r => r.filename));
-        state.selectedReferences.forEach(filename => {
-            if (!existingFilenames.has(filename)) state.selectedReferences.delete(filename);
-        });
+        if (state.selectedReference && !existingFilenames.has(state.selectedReference)) {
+            state.selectedReference = null;
+        }
 
         renderReferenceGrid();
         updateSelectionCount();
@@ -176,7 +179,7 @@ function renderReferenceGrid() {
     }
 
     elements.referenceGrid.innerHTML = filtered.map(ref => `
-        <div class="reference-item ${ref.type === 'user' ? 'user-uploaded' : ''} ${state.selectedReferences.has(ref.filename) ? 'selected' : 'deselected'}"
+        <div class="reference-item ${ref.type === 'user' ? 'user-uploaded' : ''} ${state.selectedReference === ref.filename ? 'selected' : 'deselected'}"
              data-filename="${ref.filename}"
              data-type="${ref.type}"
              onclick="toggleReferenceSelection('${ref.filename}', event)">
@@ -203,59 +206,49 @@ function renderReferenceGrid() {
 function toggleReferenceSelection(filename, event) {
     if (event && event.target.closest('.btn-delete-ref')) return;
 
-    if (state.selectedReferences.has(filename)) {
-        state.selectedReferences.delete(filename);
-    } else {
-        if (state.selectedReferences.size >= 25) {
-            alert('Maximum 25 references can be selected.');
-            return;
-        }
-        state.selectedReferences.add(filename);
-    }
+    const prev = state.selectedReference;
+    state.selectedReference = (prev === filename) ? null : filename;
 
-    const refItem = document.querySelector(`.reference-item[data-filename="${filename}"]`);
-    if (refItem) {
-        refItem.classList.toggle('selected', state.selectedReferences.has(filename));
-        refItem.classList.toggle('deselected', !state.selectedReferences.has(filename));
-    }
+    document.querySelectorAll('.reference-item').forEach(item => {
+        const isSel = item.dataset.filename === state.selectedReference;
+        item.classList.toggle('selected', isSel);
+        item.classList.toggle('deselected', !isSel);
+    });
+
+    // Mirror selection state in the custom-ref grid (separate DOM)
+    document.querySelectorAll('.custom-ref-item').forEach(item => {
+        const isSel = item.dataset.filename === state.selectedReference;
+        item.classList.toggle('selected', isSel);
+    });
 
     updateSelectionCount();
     updateProcessButton();
 }
 
 function selectAllReferences() {
-    const maxToSelect = Math.min(state.references.length, 25);
-    state.references.slice(0, maxToSelect).forEach(ref => state.selectedReferences.add(ref.filename));
-
-    document.querySelectorAll('.reference-item').forEach((item, i) => {
-        if (i < maxToSelect) {
-            item.classList.add('selected');
-            item.classList.remove('deselected');
-        }
-    });
-
-    if (state.references.length > 25) {
-        alert('Selected first 25 references (maximum).');
-    }
-
+    // Single-select mode: "All" just picks the first reference.
+    if (state.references.length === 0) return;
+    state.selectedReference = state.references[0].filename;
+    renderReferenceGrid();
+    renderCustomRefGrid();
     updateSelectionCount();
     updateProcessButton();
 }
 
 function deselectAllReferences() {
-    state.selectedReferences.clear();
+    state.selectedReference = null;
     document.querySelectorAll('.reference-item').forEach(item => {
         item.classList.remove('selected');
         item.classList.add('deselected');
     });
+    document.querySelectorAll('.custom-ref-item').forEach(item => item.classList.remove('selected'));
     updateSelectionCount();
     updateProcessButton();
 }
 
 function updateSelectionCount() {
     if (elements.selectionCount) {
-        const count = state.selectedReferences.size;
-        elements.selectionCount.textContent = `${count} selected`;
+        elements.selectionCount.textContent = state.selectedReference ? '1 selected' : '0 selected';
     }
 }
 
@@ -277,7 +270,7 @@ async function uploadReferenceImage(file) {
 
         const data = await response.json();
 
-        // Add the uploaded ref directly to state and auto-select
+        // Add the uploaded ref directly to state and auto-select (replacing any prior selection)
         const newRef = {
             name: data.name,
             filename: data.filename,
@@ -288,11 +281,10 @@ async function uploadReferenceImage(file) {
         };
 
         state.references.push(newRef);
-        state.selectedReferences.add(data.filename);
+        state.selectedReference = data.filename;
 
-        // Show the uploaded image in the custom ref grid
         renderCustomRefGrid();
-
+        renderReferenceGrid();
         updateSelectionCount();
         updateProcessButton();
 
@@ -323,8 +315,9 @@ window.deleteReference = deleteReference;
 // Remove a custom reference uploaded in this session
 window.removeCustomRef = function(filename) {
     state.references = state.references.filter(r => r.filename !== filename);
-    state.selectedReferences.delete(filename);
+    if (state.selectedReference === filename) state.selectedReference = null;
     renderCustomRefGrid();
+    renderReferenceGrid();
     updateSelectionCount();
     updateProcessButton();
 };
@@ -350,7 +343,7 @@ function renderCustomRefGrid() {
     }
 
     grid.innerHTML = customRefs.map(ref => `
-        <div class="custom-ref-item ${state.selectedReferences.has(ref.filename) ? 'selected' : ''}" data-filename="${ref.filename}" onclick="toggleReferenceSelection('${ref.filename}', event)">
+        <div class="custom-ref-item ${state.selectedReference === ref.filename ? 'selected' : ''}" data-filename="${ref.filename}" onclick="toggleReferenceSelection('${ref.filename}', event)">
             <img src="${ref.url}" alt="${ref.name}">
             <button class="btn-delete-ref" onclick="event.stopPropagation(); removeCustomRef('${ref.filename}')" title="Remove">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
@@ -361,49 +354,99 @@ function renderCustomRefGrid() {
 }
 
 // ============================================
-// Single Image Upload
+// Multi-photo upload
 // ============================================
-async function handleFileUpload(file) {
-    if (!file || !file.type.startsWith('image/')) {
-        alert('Please upload an image file');
+async function handleFiles(fileList) {
+    const files = Array.from(fileList).filter(f => f && f.type.startsWith('image/'));
+    if (files.length === 0) {
+        alert('Please upload image files');
         return;
     }
 
-    const formData = new FormData();
-    formData.append('file', file);
-
-    try {
-        const response = await fetch('/api/upload', { method: 'POST', body: formData });
-        if (!response.ok) throw new Error('Upload failed');
-
-        const data = await response.json();
-        state.uploadedFile = {
-            file: file,
-            filename: data.filename,
-            url: data.url,
-            originalName: data.original_name
-        };
-
-        // Show preview
-        elements.heroUpload.style.display = 'none';
-        elements.imagePreviewContainer.style.display = 'block';
-        elements.previewImage.src = data.url;
-        elements.imageInfo.textContent = `${data.original_name} — ${(file.size / 1024).toFixed(0)} KB`;
-
-        updateProcessButton();
-    } catch (error) {
-        console.error('Upload failed:', error);
-        alert('Failed to upload image: ' + error.message);
+    const remaining = MAX_UPLOADS - state.uploadedFiles.length;
+    if (remaining <= 0) {
+        alert(`You can upload at most ${MAX_UPLOADS} photos.`);
+        return;
     }
+
+    const toUpload = files.slice(0, remaining);
+    if (files.length > remaining) {
+        alert(`Only the first ${remaining} of ${files.length} photos will be added (max ${MAX_UPLOADS}).`);
+    }
+
+    for (const file of toUpload) {
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+            const response = await fetch('/api/upload', { method: 'POST', body: formData });
+            if (!response.ok) throw new Error('Upload failed');
+            const data = await response.json();
+            state.uploadedFiles.push({
+                file,
+                filename: data.filename,
+                url: data.url,
+                originalName: data.original_name,
+                size: file.size,
+            });
+        } catch (error) {
+            console.error('Upload failed:', error);
+            alert(`Failed to upload ${file.name}: ${error.message}`);
+        }
+    }
+
+    renderUploadedGrid();
+    updateProcessButton();
 }
 
-function clearUpload() {
-    state.uploadedFile = null;
-    elements.heroUpload.style.display = 'block';
-    elements.imagePreviewContainer.style.display = 'none';
-    elements.previewImage.src = '';
-    elements.fileInput.value = '';
+function renderUploadedGrid() {
+    if (!elements.uploadedGrid || !elements.imagePreviewContainer) return;
+
+    const count = state.uploadedFiles.length;
+    if (count === 0) {
+        elements.heroUpload.style.display = 'block';
+        elements.imagePreviewContainer.style.display = 'none';
+        elements.uploadedGrid.innerHTML = '';
+        if (elements.uploadCount) elements.uploadCount.textContent = '0 photos';
+        return;
+    }
+
+    elements.heroUpload.style.display = 'none';
+    elements.imagePreviewContainer.style.display = 'block';
+    if (elements.uploadCount) {
+        elements.uploadCount.textContent = `${count} photo${count !== 1 ? 's' : ''} (max ${MAX_UPLOADS})`;
+    }
+
+    elements.uploadedGrid.innerHTML = state.uploadedFiles.map(f => `
+        <div class="uploaded-item" data-filename="${f.filename}">
+            <img src="${f.url}" alt="${f.originalName}" loading="lazy" decoding="async">
+            <span class="uploaded-name">${f.originalName}</span>
+            <button class="btn-remove-upload" type="button" onclick="removeUploadedFile('${f.filename}')" title="Remove">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+        </div>
+    `).join('');
+}
+
+window.removeUploadedFile = function(filename) {
+    const item = state.uploadedFiles.find(f => f.filename === filename);
+    state.uploadedFiles = state.uploadedFiles.filter(f => f.filename !== filename);
+    renderUploadedGrid();
     updateProcessButton();
+
+    if (item) {
+        // Best-effort cleanup on server
+        fetch(`/api/cleanup/${encodeURIComponent(filename)}`, { method: 'DELETE' }).catch(() => {});
+    }
+};
+
+function clearAllUploads() {
+    const toDelete = state.uploadedFiles.slice();
+    state.uploadedFiles = [];
+    renderUploadedGrid();
+    updateProcessButton();
+    for (const f of toDelete) {
+        fetch(`/api/cleanup/${encodeURIComponent(f.filename)}`, { method: 'DELETE' }).catch(() => {});
+    }
 }
 
 // ============================================
@@ -747,10 +790,11 @@ function setupXMPEventListeners() {
 // Process Button State
 // ============================================
 function updateProcessButton() {
-    const hasUpload = state.uploadedFile !== null;
-    const hasSelectedRefs = state.selectedReferences.size > 0;
+    const uploadCount = state.uploadedFiles.length;
+    const hasUpload = uploadCount > 0;
+    const hasRef = !!state.selectedReference;
     const hasXMP = state.xmpPreset !== null;
-    const canProcess = hasUpload && (state.styleSource === 'xmp' ? hasXMP : hasSelectedRefs);
+    const canProcess = hasUpload && (state.styleSource === 'xmp' ? hasXMP : hasRef);
 
     if (elements.processBtn) {
         elements.processBtn.disabled = !canProcess;
@@ -758,22 +802,23 @@ function updateProcessButton() {
 
     if (elements.btnText) {
         if (state.styleSource === 'xmp') {
-            elements.btnText.textContent = 'Apply Preset';
+            elements.btnText.textContent = uploadCount > 1 ? `Apply Preset to ${uploadCount} Photos` : 'Apply Preset';
         } else {
-            const count = state.selectedReferences.size;
-            elements.btnText.textContent = count > 0 ? `Generate ${count} Version${count > 1 ? 's' : ''}` : 'Generate Versions';
+            elements.btnText.textContent = uploadCount > 0
+                ? `Generate ${uploadCount} Version${uploadCount > 1 ? 's' : ''}`
+                : 'Generate Versions';
         }
     }
 
     if (elements.actionHint) {
         if (canProcess) {
             elements.actionHint.textContent = '';
-        } else if (!hasSelectedRefs && state.styleSource === 'reference') {
-            elements.actionHint.textContent = 'Choose a style to begin';
+        } else if (!hasUpload) {
+            elements.actionHint.textContent = 'Upload your photos';
         } else if (state.styleSource === 'xmp' && !hasXMP) {
             elements.actionHint.textContent = 'Upload an XMP preset file';
-        } else if (!hasUpload) {
-            elements.actionHint.textContent = 'Upload your photo';
+        } else if (!hasRef) {
+            elements.actionHint.textContent = 'Choose a style to begin';
         }
     }
 }
@@ -784,7 +829,11 @@ function updateProcessButton() {
 function setupEventListeners() {
     // Upload dropzone
     if (elements.uploadDropzone) {
-        elements.uploadDropzone.addEventListener('click', () => elements.fileInput.click());
+        elements.uploadDropzone.addEventListener('click', (e) => {
+            // Ignore clicks on the toolbar buttons inside the preview area
+            if (e.target.closest('.upload-toolbar') || e.target.closest('.uploaded-item')) return;
+            elements.fileInput.click();
+        });
         elements.uploadDropzone.addEventListener('dragover', (e) => {
             e.preventDefault();
             elements.uploadDropzone.classList.add('drag-over');
@@ -793,20 +842,29 @@ function setupEventListeners() {
         elements.uploadDropzone.addEventListener('drop', (e) => {
             e.preventDefault();
             elements.uploadDropzone.classList.remove('drag-over');
-            if (e.dataTransfer.files.length > 0) handleFileUpload(e.dataTransfer.files[0]);
+            if (e.dataTransfer.files.length > 0) handleFiles(e.dataTransfer.files);
         });
     }
 
     if (elements.fileInput) {
         elements.fileInput.addEventListener('change', (e) => {
-            if (e.target.files.length > 0) handleFileUpload(e.target.files[0]);
+            if (e.target.files.length > 0) {
+                handleFiles(e.target.files);
+                e.target.value = '';
+            }
         });
     }
 
-    // Replace image
-    if (elements.btnReplace) {
-        elements.btnReplace.addEventListener('click', () => {
-            clearUpload();
+    if (elements.btnAddMore) {
+        elements.btnAddMore.addEventListener('click', (e) => {
+            e.stopPropagation();
+            elements.fileInput.click();
+        });
+    }
+    if (elements.btnClearAll) {
+        elements.btnClearAll.addEventListener('click', (e) => {
+            e.stopPropagation();
+            clearAllUploads();
         });
     }
 
@@ -907,11 +965,17 @@ function setupEventListeners() {
 }
 
 // ============================================
-// Processing
+// Processing — N photos × 1 reference
 // ============================================
 async function processAllImages() {
     if (state.styleSource === 'xmp') return processXMP();
-    if (state.selectedReferences.size === 0 || !state.uploadedFile) return;
+    if (!state.selectedReference || state.uploadedFiles.length === 0) return;
+
+    const ref = state.references.find(r => r.filename === state.selectedReference);
+    if (!ref) {
+        alert('Selected reference not found.');
+        return;
+    }
 
     // UI: show processing state
     elements.btnText.style.display = 'none';
@@ -920,26 +984,24 @@ async function processAllImages() {
     elements.progressBarContainer.style.display = 'flex';
     setNavStatus('Processing...', true);
 
-    state.processedResults = [];
-    const selectedRefs = state.references.filter(ref => state.selectedReferences.has(ref.filename));
-    const total = selectedRefs.length;
+    const total = state.uploadedFiles.length;
     let current = 0;
 
-    const inputResult = {
-        inputUrl: state.uploadedFile.url,
-        originalName: state.uploadedFile.originalName,
-        filename: state.uploadedFile.filename,
-        referenceResults: {}
+    const refResult = {
+        refUrl: ref.url,
+        refName: ref.name,
+        refFilename: ref.filename,
+        targetResults: {} // keyed by uploaded filename
     };
 
     try {
-        elements.progressText.textContent = `Processing ${total} references in parallel...`;
+        elements.progressText.textContent = `Processing ${total} photo${total > 1 ? 's' : ''} in parallel...`;
         elements.progressBarFill.style.width = `0%`;
         elements.progressLabel.textContent = `0 / ${total}`;
 
-        const processRef = async (ref) => {
+        const processOne = async (upload) => {
             const formData = new FormData();
-            formData.append('target_filename', state.uploadedFile.filename);
+            formData.append('target_filename', upload.filename);
             formData.append('reference_filename', ref.filename);
             formData.append('color_strength', elements.colorStrength.value / 100);
             formData.append('luminance_strength', elements.luminanceStrength.value / 100);
@@ -962,21 +1024,21 @@ async function processAllImages() {
             elements.progressBarFill.style.width = `${(current / total) * 100}%`;
             elements.progressLabel.textContent = `${current} / ${total}`;
 
-            return { ref, data };
+            return { upload, data };
         };
 
-        const results = await Promise.all(selectedRefs.map(processRef));
-        for (const { ref, data } of results) {
-            inputResult.referenceResults[ref.name] = {
-                refName: ref.name,
-                refUrl: ref.url,
-                refFilename: ref.filename,
+        const results = await Promise.all(state.uploadedFiles.map(processOne));
+        for (const { upload, data } of results) {
+            refResult.targetResults[upload.filename] = {
+                targetUrl: upload.url,
+                targetFilename: upload.filename,
+                originalName: upload.originalName,
                 methods: data.outputs || {},
                 errors: data.errors || {}
             };
         }
 
-        state.processedResults.push(inputResult);
+        state.processedResults = [refResult];
 
         // Store and navigate
         sessionStorage.setItem('styleTransferResults', JSON.stringify(state.processedResults));
@@ -1000,41 +1062,59 @@ async function processAllImages() {
 }
 
 async function processXMP() {
-    if (!state.xmpPreset || !state.uploadedFile) return;
+    if (!state.xmpPreset || state.uploadedFiles.length === 0) return;
 
     elements.btnText.style.display = 'none';
     elements.btnLoading.style.display = 'inline-flex';
     elements.processBtn.disabled = true;
+    elements.progressBarContainer.style.display = 'flex';
     setNavStatus('Processing...', true);
 
+    const total = state.uploadedFiles.length;
+    let current = 0;
+
+    const refResult = {
+        refUrl: null,
+        refName: state.xmpPreset.presetName,
+        refFilename: state.xmpPreset.filename,
+        targetResults: {}
+    };
+
     try {
-        const formData = new FormData();
-        formData.append('target_filename', state.uploadedFile.filename);
-        formData.append('xmp_params', JSON.stringify(state.xmpPreset.params));
+        elements.progressText.textContent = `Applying preset to ${total} photo${total > 1 ? 's' : ''}...`;
+        elements.progressBarFill.style.width = `0%`;
+        elements.progressLabel.textContent = `0 / ${total}`;
 
-        const response = await fetch('/api/process-xmp', { method: 'POST', body: formData });
-        if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.detail || 'Processing failed');
-        }
+        const processOne = async (upload) => {
+            const formData = new FormData();
+            formData.append('target_filename', upload.filename);
+            formData.append('xmp_params', JSON.stringify(state.xmpPreset.params));
 
-        const data = await response.json();
-        const inputResult = {
-            inputUrl: state.uploadedFile.url,
-            originalName: state.uploadedFile.originalName,
-            filename: state.uploadedFile.filename,
-            referenceResults: {
-                [state.xmpPreset.presetName]: {
-                    refName: state.xmpPreset.presetName,
-                    refUrl: null,
-                    refFilename: state.xmpPreset.filename,
-                    methods: { 'xmp_preset': { filename: data.output_filename, url: data.output_url, method_name: 'XMP Preset', time_ms: 0 } },
-                    errors: {}
-                }
+            const response = await fetch('/api/process-xmp', { method: 'POST', body: formData });
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.detail || 'Processing failed');
             }
+            const data = await response.json();
+            current++;
+            elements.progressText.textContent = `Processing ${current}/${total}...`;
+            elements.progressBarFill.style.width = `${(current / total) * 100}%`;
+            elements.progressLabel.textContent = `${current} / ${total}`;
+            return { upload, data };
         };
 
-        state.processedResults = [inputResult];
+        const results = await Promise.all(state.uploadedFiles.map(processOne));
+        for (const { upload, data } of results) {
+            refResult.targetResults[upload.filename] = {
+                targetUrl: upload.url,
+                targetFilename: upload.filename,
+                originalName: upload.originalName,
+                methods: { 'xmp_preset': { filename: data.output_filename, url: data.output_url, method_name: 'XMP Preset', time_ms: 0 } },
+                errors: {}
+            };
+        }
+
+        state.processedResults = [refResult];
         sessionStorage.setItem('styleTransferResults', JSON.stringify(state.processedResults));
         sessionStorage.setItem('styleTransferSettings', JSON.stringify({
             colorStrength: 100, luminanceStrength: 0,

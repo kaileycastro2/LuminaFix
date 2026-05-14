@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Results - LuminaFix Pro</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/css/style.css?v=34">
-    <link rel="stylesheet" href="/static/css/results.css?v=32">
+    <link rel="stylesheet" href="/static/css/style.css?v=35">
+    <link rel="stylesheet" href="/static/css/results.css?v=33">
 </head>
 <body>
     <div class="ambient-glow"></div>
@@ -36,12 +36,13 @@
         <div class="results-layout">
             <!-- Sidebar: Original + Settings -->
             <aside class="results-sidebar">
-                <!-- Original Image -->
+                <!-- Reference (style source) -->
                 <div class="sidebar-block">
-                    <h3 class="sidebar-label">Original</h3>
+                    <h3 class="sidebar-label">Reference</h3>
                     <div class="original-preview">
-                        <img id="original-image" src="" alt="Original">
+                        <img id="original-image" src="" alt="Reference">
                     </div>
+                    <p class="sidebar-meta" id="reference-name"></p>
                 </div>
 
                 <!-- Live Settings -->
@@ -162,6 +163,6 @@
         </div>
     </div>
 
-    <script src="/static/js/results.js?v=42"></script>
+    <script src="/static/js/results.js?v=43"></script>
 </body>
 </html>

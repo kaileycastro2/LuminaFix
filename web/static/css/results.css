@@ -150,6 +150,41 @@
     object-fit: contain;
 }
 
+.sidebar-meta {
+    margin: 0.4rem 0 0;
+    font-size: 0.7rem;
+    color: var(--text-3);
+    word-break: break-word;
+}
+
+/* Grid: target column (per-row thumbnail of the photo) */
+.grid-target-cell {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 0.35rem;
+    padding: 0.4rem;
+    text-align: center;
+}
+
+.grid-target-cell .target-thumb {
+    width: 100%;
+    max-width: 110px;
+    aspect-ratio: 1;
+    object-fit: cover;
+    border-radius: var(--radius-sm, 6px);
+    border: 1px solid var(--border);
+    cursor: pointer;
+}
+
+.grid-target-cell .target-name {
+    font-size: 0.7rem;
+    color: var(--text-2);
+    word-break: break-word;
+    line-height: 1.2;
+}
+
 /* ============================================
    Setting Groups
    ============================================ */
