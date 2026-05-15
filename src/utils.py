@@ -18,15 +18,20 @@ def parse_bool(value: str) -> bool:
 
 
 def load_image_as_cv2(path: Path) -> Optional[np.ndarray]:
-    """Load image with PIL (supports AVIF and more formats) and convert to OpenCV BGR."""
-    from PIL import Image
+    """Load image with PIL (supports AVIF and more formats) and convert to OpenCV BGR.
+
+    Applies EXIF orientation so iPhone/Android photos that store rotation as
+    metadata (rather than rotating pixels) come through upright.
+    """
+    from PIL import Image, ImageOps
     try:
         import pillow_avif
     except ImportError:
         pass
 
     try:
-        pil_img = Image.open(path).convert('RGB')
+        pil_img = Image.open(path)
+        pil_img = ImageOps.exif_transpose(pil_img).convert('RGB')
         cv2_img = np.array(pil_img)
         return cv2.cvtColor(cv2_img, cv2.COLOR_RGB2BGR)
     except Exception as e:
