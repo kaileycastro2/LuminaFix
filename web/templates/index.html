@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LuminaFix Pro</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/css/style.css?v=36">
+    <link rel="stylesheet" href="/static/css/style.css?v=37">
 </head>
 <body>
     <div class="app-shell">
@@ -24,103 +24,27 @@
 
         <!-- Hero Intro -->
         <section class="hero-intro">
-            <h1>Match Any Look. <span>Perfectly Applied.</span></h1>
-            <p class="hero-sub">See a photo you love? Turn it into a custom edit that adapts perfectly to your own photos&mdash;no matter the lighting or scene. Export as a Lightroom preset or apply instantly.</p>
+            <h1>Copy the edit from one photo. <span>Apply it to hundreds.</span></h1>
+            <p class="hero-sub">Upload a photo that has the look you want &mdash; LuminaFix reads its color, tone, and mood, then applies that exact style to all your photos at once.</p>
         </section>
 
         <!-- Content -->
         <div class="content-grid">
-            <!-- Source Choice (Step 1) -->
-            <div class="card card-source">
+            <!-- Style Source (Step 1) -->
+            <div class="card card-source" id="custom-ref-card">
                 <div class="card-label">Step 1</div>
-                <h2>Choose Your Style</h2>
-                <p class="card-desc">Pick a reference photo whose color and mood you want to replicate.</p>
-                <div class="source-options">
-                    <button class="source-card active" id="source-custom-btn" data-source="custom">
-                        <div class="source-icon">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="28" height="28">
-                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                                <polyline points="17 8 12 3 7 8"/>
-                                <line x1="12" y1="3" x2="12" y2="15"/>
-                            </svg>
-                        </div>
-                        <div class="source-text">
-                            <strong>Custom Reference</strong>
-                            <span>Upload your own style image</span>
-                        </div>
-                    </button>
-                    <button class="source-card" id="source-ref-btn" data-source="reference">
-                        <div class="source-icon">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="28" height="28">
-                                <rect x="2" y="2" width="20" height="20" rx="3"/>
-                                <circle cx="8" cy="8" r="2"/>
-                                <path d="M22 16l-6-6-8 12"/>
-                            </svg>
-                        </div>
-                        <div class="source-text">
-                            <strong>Preset Library</strong>
-                            <span>Curated styles to pick from</span>
-                        </div>
-                    </button>
-                </div>
-
-                <!-- XMP Panel stays hidden (kept for JS compatibility) -->
-                <div id="xmp-source-panel" style="display:none;">
-                    <div class="xmp-drop" id="xmp-upload-area">
-                        <span>Drop .xmp file here or <button class="link-btn" id="xmp-browse-btn">browse</button></span>
-                        <input type="file" id="xmp-file-input" accept=".xmp" hidden>
-                    </div>
-                    <div class="xmp-loaded" id="xmp-loaded-info" style="display:none;">
-                        <div class="xmp-file-row">
-                            <span class="xmp-filename" id="xmp-filename"></span>
-                            <span class="xmp-preset-name" id="xmp-preset-name"></span>
-                        </div>
-                        <div class="xmp-params-preview" id="xmp-params-preview"></div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Preset Library (under Step 1) -->
-            <div class="card card-presets" id="reference-block" style="display:none;">
-                <div class="presets-header">
-                    <div>
-                        <h2>Style Library</h2>
-                        <p class="card-desc">Browse curated looks across categories. Click a category to explore.</p>
-                    </div>
-                    <div class="ref-controls">
-                        <span class="ref-count" id="selection-count">0 selected</span>
-                        <button class="btn btn-xs btn-outline" onclick="selectAllReferences()">All</button>
-                        <button class="btn btn-xs btn-outline" onclick="deselectAllReferences()">None</button>
-                    </div>
-                </div>
-
-                <!-- Category Tabs -->
-                <div class="cat-tabs" id="category-tabs">
-                    <!-- Populated by JS -->
-                </div>
-
-                <!-- Reference Grid (hidden until category selected) -->
-                <div class="ref-grid-wrapper" id="ref-grid-wrapper" style="display:none;">
-                    <div class="reference-grid" id="reference-grid"></div>
-                </div>
-            </div>
-
-            <!-- Custom Reference Upload (shown when "Custom Reference" source selected) -->
-            <div class="card card-custom-ref" id="custom-ref-card">
-                <div class="card-label">Custom Reference</div>
-                <h2>Upload Your Style Image</h2>
-                <p class="card-desc">Upload the photo whose look you want to copy</p>
-                <div class="dropzone dropzone-sm" id="reference-upload-area">
+                <h2>Pick your style source</h2>
+                <p class="card-desc">Upload a photo that has the edit you want to copy &mdash; one of your own shots, or any photo whose look you love.</p>
+                <div class="dropzone" id="reference-upload-area">
                     <div class="dropzone-inner">
-                        <div class="dropzone-icon" style="width:40px;height:40px;">
+                        <div class="dropzone-icon">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                                <polyline points="17 8 12 3 7 8"/>
-                                <line x1="12" y1="3" x2="12" y2="15"/>
+                                <rect x="6" y="6" width="12" height="12" rx="2"/>
                             </svg>
                         </div>
-                        <span class="dropzone-title">Drop reference image or <u>browse</u></span>
-                        <span class="dropzone-sub">JPG, PNG, TIFF, WebP</span>
+                        <span class="dropzone-title">Drop your style photo here, or <u>browse</u></span>
+                        <span class="dropzone-sub">This is the photo whose edit you want to copy &mdash; not the photos you're editing</span>
+                        <span class="format-badge">JPG &middot; PNG &middot; TIFF &middot; WebP</span>
                     </div>
                     <input type="file" id="reference-file-input" accept="image/*" hidden>
                 </div>
@@ -129,8 +53,8 @@
             <!-- Upload (Step 2) -->
             <div class="card card-upload">
                 <div class="card-label">Step 2</div>
-                <h2>Upload Your Photos</h2>
-                <p class="card-desc">Add the photos you want to color-grade. We'll apply your chosen style to each one (up to 25).</p>
+                <h2>Add the photos you want to transform</h2>
+                <p class="card-desc">LuminaFix will apply the style from your reference photo to every image here &mdash; like running them all through the same custom preset. Up to 25 photos at once.</p>
 
                 <!-- Dropzone -->
                 <div class="dropzone" id="upload-dropzone">
@@ -142,8 +66,8 @@
                                 <path d="M28 26V16" stroke-width="1.5" stroke-linecap="round"/>
                             </svg>
                         </div>
-                        <span class="dropzone-title">Drop images here or <u>browse</u></span>
-                        <span class="dropzone-sub">JPG, PNG, TIFF, WebP up to 50 MB each</span>
+                        <span class="dropzone-title">Drop your photos here, or <u>browse</u></span>
+                        <span class="dropzone-sub">JPG &middot; PNG &middot; TIFF &middot; WebP &middot; up to 50 MB each</span>
                     </div>
                     <input type="file" id="file-input" accept="image/*" multiple hidden>
                 </div>
@@ -191,20 +115,20 @@
 
         <!-- Bottom Bar -->
         <div class="bottom-bar">
-            <span class="bottom-hint" id="action-hint">Choose a style to begin</span>
+            <span class="bottom-hint" id="action-hint">Add your photos to get started</span>
             <div class="bottom-actions">
                 <div class="progress-bar-container" id="progress-bar-container" style="display:none;">
                     <div class="progress-track"><div class="progress-fill" id="progress-bar-fill" style="width:0%"></div></div>
                     <span class="progress-label" id="progress-label">0/0</span>
                 </div>
                 <button class="btn btn-primary btn-go" id="process-btn" disabled>
-                    <span id="btn-text">Generate Versions</span>
+                    <span id="btn-text">Apply style to my photos</span>
                     <span id="btn-loading" style="display:none;"><span class="spinner"></span><span id="progress-text">Processing...</span></span>
                 </button>
             </div>
         </div>
     </div>
 
-    <script src="/static/js/app.js?v=37"></script>
+    <script src="/static/js/app.js?v=38"></script>
 </body>
 </html>

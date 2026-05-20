@@ -85,175 +85,32 @@ document.addEventListener('DOMContentLoaded', () => {
         methodBlock: document.getElementById('method-block'),
     };
 
-    loadReferences();
     loadNilutStatus();
     loadUniversalNilutStatus();
     setupEventListeners();
-    setupXMPEventListeners();
     updateNilutSectionVisibility();
     updateModelSelectorVisibility();
+    updateProcessButton();
 });
 
 // ============================================
-// References
+// Style Reference (single custom upload)
 // ============================================
-async function loadReferences() {
-    try {
-        const response = await fetch('/api/references');
-        const data = await response.json();
-
-        if (data.references.length === 0) {
-            elements.referenceGrid.innerHTML = '<div class="loading-skeleton">No reference images found.</div>';
-            state.selectedReference = null;
-            updateSelectionCount();
-            return;
-        }
-
-        state.references = data.references;
-        state.categories = data.categories || ['All'];
-
-        // Build category tabs
-        buildCategoryTabs();
-
-        // Clear stale selection
-        const existingFilenames = new Set(data.references.map(r => r.filename));
-        if (state.selectedReference && !existingFilenames.has(state.selectedReference)) {
-            state.selectedReference = null;
-        }
-
-        renderReferenceGrid();
-        updateSelectionCount();
-        updateProcessButton();
-    } catch (error) {
-        console.error('Failed to load references:', error);
-        elements.referenceGrid.innerHTML = '<div class="loading-skeleton">Failed to load references</div>';
-    }
-}
-
-function buildCategoryTabs() {
-    const tabsContainer = document.getElementById('category-tabs');
-    if (!tabsContainer) return;
-
-    // Build category list — include "Custom" if any user refs exist
-    const hasCustom = state.references.some(r => r.category === 'Custom');
-    let realCats = state.categories.filter(c => c !== 'All');
-    if (hasCustom && !realCats.includes('Custom')) realCats.push('Custom');
-    tabsContainer.innerHTML = realCats.map(cat =>
-        `<button class="cat-tab ${cat === state.activeCategory ? 'active' : ''}" data-category="${cat}">${cat}</button>`
-    ).join('');
-
-    tabsContainer.addEventListener('click', (e) => {
-        const tab = e.target.closest('.cat-tab');
-        if (!tab) return;
-        // Toggle: click same category again to collapse
-        if (state.activeCategory === tab.dataset.category) {
-            state.activeCategory = null;
-            tabsContainer.querySelectorAll('.cat-tab').forEach(t => t.classList.remove('active'));
-        } else {
-            state.activeCategory = tab.dataset.category;
-            tabsContainer.querySelectorAll('.cat-tab').forEach(t => t.classList.toggle('active', t === tab));
-        }
-        renderReferenceGrid();
-    });
-}
-
-function renderReferenceGrid() {
-    const wrapper = document.getElementById('ref-grid-wrapper');
-
-    // If no category selected, hide the grid
-    if (!state.activeCategory) {
-        if (wrapper) wrapper.style.display = 'none';
-        return;
-    }
-
-    if (wrapper) wrapper.style.display = 'block';
-
-    const filtered = state.activeCategory === 'All'
-        ? state.references
-        : state.references.filter(ref => ref.category === state.activeCategory);
-
-    if (filtered.length === 0) {
-        elements.referenceGrid.innerHTML = '<div class="loading-skeleton">No references in this category.</div>';
-        return;
-    }
-
-    elements.referenceGrid.innerHTML = filtered.map(ref => `
-        <div class="reference-item ${ref.type === 'user' ? 'user-uploaded' : ''} ${state.selectedReference === ref.filename ? 'selected' : 'deselected'}"
-             data-filename="${ref.filename}"
-             data-type="${ref.type}"
-             onclick="toggleReferenceSelection('${ref.filename}', event)">
-            <div class="ref-selection-indicator">
-                <svg class="check-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
-                    <polyline points="20 6 9 17 4 12"/>
-                </svg>
-            </div>
-            <img src="${ref.thumb_url || ref.url}" alt="${ref.name}" loading="lazy" decoding="async">
-            <span class="ref-name">${ref.name}</span>
-            ${ref.deletable ? `
-                <button class="btn-delete-ref" onclick="deleteReference('${ref.filename}')" title="Delete">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <line x1="18" y1="6" x2="6" y2="18"/>
-                        <line x1="6" y1="6" x2="18" y2="18"/>
-                    </svg>
-                </button>
-            ` : ''}
-            ${ref.type === 'user' ? '<span class="ref-badge">Custom</span>' : ''}
-        </div>
-    `).join('');
-}
-
 function toggleReferenceSelection(filename, event) {
     if (event && event.target.closest('.btn-delete-ref')) return;
 
     const prev = state.selectedReference;
     state.selectedReference = (prev === filename) ? null : filename;
 
-    document.querySelectorAll('.reference-item').forEach(item => {
-        const isSel = item.dataset.filename === state.selectedReference;
-        item.classList.toggle('selected', isSel);
-        item.classList.toggle('deselected', !isSel);
-    });
-
-    // Mirror selection state in the custom-ref grid (separate DOM)
     document.querySelectorAll('.custom-ref-item').forEach(item => {
         const isSel = item.dataset.filename === state.selectedReference;
         item.classList.toggle('selected', isSel);
     });
 
-    updateSelectionCount();
     updateProcessButton();
-}
-
-function selectAllReferences() {
-    // Single-select mode: "All" just picks the first reference.
-    if (state.references.length === 0) return;
-    state.selectedReference = state.references[0].filename;
-    renderReferenceGrid();
-    renderCustomRefGrid();
-    updateSelectionCount();
-    updateProcessButton();
-}
-
-function deselectAllReferences() {
-    state.selectedReference = null;
-    document.querySelectorAll('.reference-item').forEach(item => {
-        item.classList.remove('selected');
-        item.classList.add('deselected');
-    });
-    document.querySelectorAll('.custom-ref-item').forEach(item => item.classList.remove('selected'));
-    updateSelectionCount();
-    updateProcessButton();
-}
-
-function updateSelectionCount() {
-    if (elements.selectionCount) {
-        elements.selectionCount.textContent = state.selectedReference ? '1 selected' : '0 selected';
-    }
 }
 
 window.toggleReferenceSelection = toggleReferenceSelection;
-window.selectAllReferences = selectAllReferences;
-window.deselectAllReferences = deselectAllReferences;
 
 // Reference upload
 async function uploadReferenceImage(file) {
@@ -283,8 +140,6 @@ async function uploadReferenceImage(file) {
         state.selectedReference = data.filename;
 
         renderCustomRefGrid();
-        renderReferenceGrid();
-        updateSelectionCount();
         updateProcessButton();
 
     } catch (error) {
@@ -293,31 +148,11 @@ async function uploadReferenceImage(file) {
     }
 }
 
-async function deleteReference(filename) {
-    if (!confirm('Delete this reference image?')) return;
-    try {
-        const response = await fetch(`/api/references/${filename}`, { method: 'DELETE' });
-        if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.detail || 'Delete failed');
-        }
-        await loadReferences();
-        await loadNilutStatus();
-    } catch (error) {
-        console.error('Delete failed:', error);
-        alert('Failed to delete reference: ' + error.message);
-    }
-}
-
-window.deleteReference = deleteReference;
-
 // Remove a custom reference uploaded in this session
 window.removeCustomRef = function(filename) {
     state.references = state.references.filter(r => r.filename !== filename);
     if (state.selectedReference === filename) state.selectedReference = null;
     renderCustomRefGrid();
-    renderReferenceGrid();
-    updateSelectionCount();
     updateProcessButton();
 };
 
@@ -412,7 +247,7 @@ function renderUploadedGrid() {
         elements.uploadedGrid.innerHTML = '';
         if (elements.uploadCount) elements.uploadCount.textContent = '0 photos';
         // Restore full prompt
-        setHeroPrompt('Drop images here or <u>browse</u>', 'JPG, PNG, TIFF, WebP up to 50 MB each', false);
+        setHeroPrompt('Drop your photos here, or <u>browse</u>', 'JPG · PNG · TIFF · WebP · up to 50 MB each', false);
         return;
     }
 
@@ -696,30 +531,6 @@ function updateNilutSectionVisibility() {
 }
 
 // ============================================
-// Style Source
-// ============================================
-function setStyleSource(source) {
-    state.styleSource = source === 'custom' ? 'reference' : source;
-
-    // Update active states on all 3 source cards
-    document.querySelectorAll('.source-card').forEach(card => {
-        card.classList.toggle('active', card.dataset.source === source);
-    });
-
-    // Show/hide panels
-    const refBlock = document.getElementById('reference-block');
-    const xmpPanel = document.getElementById('xmp-source-panel');
-    const customCard = document.getElementById('custom-ref-card');
-
-    if (refBlock) refBlock.style.display = source === 'reference' ? 'block' : 'none';
-    if (xmpPanel) xmpPanel.style.display = source === 'xmp' ? 'block' : 'none';
-    if (customCard) customCard.style.display = source === 'custom' ? 'block' : 'none';
-
-    updateProcessButton();
-}
-window.setStyleSource = setStyleSource;
-
-// ============================================
 // XMP Functions
 // ============================================
 async function uploadXMPPreset(file) {
@@ -818,24 +629,18 @@ function updateProcessButton() {
     }
 
     if (elements.btnText) {
-        if (state.styleSource === 'xmp') {
-            elements.btnText.textContent = uploadCount > 1 ? `Apply Preset to ${uploadCount} Photos` : 'Apply Preset';
-        } else {
-            elements.btnText.textContent = uploadCount > 0
-                ? `Generate ${uploadCount} Version${uploadCount > 1 ? 's' : ''}`
-                : 'Generate Versions';
-        }
+        elements.btnText.textContent = uploadCount > 0
+            ? `Apply style to ${uploadCount} photo${uploadCount > 1 ? 's' : ''}`
+            : 'Apply style to my photos';
     }
 
     if (elements.actionHint) {
         if (canProcess) {
             elements.actionHint.textContent = '';
-        } else if (!hasUpload) {
-            elements.actionHint.textContent = 'Upload your photos';
-        } else if (state.styleSource === 'xmp' && !hasXMP) {
-            elements.actionHint.textContent = 'Upload an XMP preset file';
         } else if (!hasRef) {
-            elements.actionHint.textContent = 'Choose a style to begin';
+            elements.actionHint.textContent = 'Upload a style photo to begin';
+        } else if (!hasUpload) {
+            elements.actionHint.textContent = 'Add your photos to get started';
         }
     }
 }
@@ -903,12 +708,6 @@ function setupEventListeners() {
             if (e.target.files.length > 0) { uploadReferenceImage(e.target.files[0]); e.target.value = ''; }
         });
     }
-
-    // Source toggle
-    if (elements.sourceRefBtn) elements.sourceRefBtn.addEventListener('click', () => setStyleSource('reference'));
-    if (elements.sourceXmpBtn) elements.sourceXmpBtn.addEventListener('click', () => setStyleSource('xmp'));
-    const customBtn = document.getElementById('source-custom-btn');
-    if (customBtn) customBtn.addEventListener('click', () => setStyleSource('custom'));
 
     // Method pills
     if (elements.methodPills) {

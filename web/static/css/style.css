@@ -277,6 +277,16 @@ body {
     color: var(--text-3);
 }
 
+.format-badge {
+    margin-top: 0.5rem;
+    padding: 0.3rem 0.85rem;
+    border-radius: 16px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-size: 0.7rem;
+    font-weight: 500;
+}
+
 /* ============================================
    PREVIEW
    ============================================ */
@@ -979,6 +989,16 @@ input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.15); }
     padding: 0.65rem 2.25rem;
     font-size: 0.9rem;
     border-radius: var(--radius);
+}
+
+.btn-go #btn-text::after {
+    content: '';
+    display: inline-block;
+    width: 11px; height: 11px;
+    margin-left: 0.5rem;
+    border: 1.5px solid currentColor;
+    border-radius: 2px;
+    vertical-align: -1px;
 }
 
 /* ============================================
